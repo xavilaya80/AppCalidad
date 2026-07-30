@@ -13,7 +13,7 @@
 </head>
 <body>
 
-  <!-- MODAL DE INICIO DE SESIÓN OBLIGATORIO -->
+  <!-- MODAL DE INICIO DE SESIÓN OBLIGATORIO (SOLO INSPECTORES) -->
   <div id="login-modal" class="modal-overlay">
     <div class="modal-box card-industrial">
       <div class="modal-header-ind">
@@ -28,22 +28,19 @@
         <option value="Estrella">Estrella</option>
         <option value="Micaela">Micaela</option>
         <option value="Manuel">Manuel</option>
-        <option value="Xavier">Xavier (Admin)</option>
-        <option value="Víctor">Víctor (Admin)</option>
       </select>
 
       <label class="ind-label">PIN / Clave de Acceso:</label>
       <input type="password" id="login-pin" class="ind-input" placeholder="****" maxlength="4" inputmode="numeric">
 
       <button id="btn-login" class="btn-ind btn-primary-ind btn-block">INICIAR SESIÓN</button>
-      <p id="login-error" class="error-text-ind" style="display:none;">⚠️ PIN incorrecto o usuario no seleccionado.</p>
+      <p id="login-error" class="error-text-ind" style="display:none;">⚠️ PIN incorrecto o inspector no seleccionado.</p>
     </div>
   </div>
 
   <!-- CONTENIDO PRINCIPAL (BLOQUEADO HASTA INICIAR SESIÓN) -->
   <div id="app-content" style="display: none;">
 
-    <!-- ENCABEZADO SUPERIOR -->
     <header class="ind-header">
       <div class="ind-brand">
         <div class="status-dot online"></div>
@@ -72,7 +69,7 @@
       <!-- VISTA 1: FORMULARIO PRINCIPAL -->
       <section id="view-formulario" class="app-view active">
         
-        <!-- APARTADO 1: INSPECCIONES EN PROCESO (CABECERA) -->
+        <!-- APARTADO 1: CABECERA -->
         <div class="card-industrial">
           <div class="card-header-ind flex-between">
             <h3>1. Inspecciones en proceso</h3>
@@ -93,7 +90,7 @@
               </select>
             </div>
             <div>
-              <label class="ind-label">Turno (Automático / No editable):</label>
+              <label class="ind-label">Turno (Automático):</label>
               <input type="text" id="input-turno" class="ind-input ind-readonly" readonly>
             </div>
             <div>
@@ -110,7 +107,6 @@
             </div>
           </div>
 
-          <!-- BÁNER DE ESPECIFICACIONES AUTOMÁTICAS -->
           <div id="specs-banner" class="specs-box-ind" style="display:none;">
             <strong>📋 Especificaciones Estándar del Producto:</strong>
             <div class="specs-grid" style="margin-top: 6px;">
@@ -122,7 +118,7 @@
           </div>
         </div>
 
-        <!-- APARTADO 2: CUMPLIMIENTO Y MEDICIONES -->
+        <!-- APARTADO 2: MEDICIONES Y CUMPLIMIENTO -->
         <div class="card-industrial">
           <div class="card-header-ind">
             <h3>2. Cumplimiento especificaciones y Mediciones</h3>
@@ -188,7 +184,7 @@
           </div>
         </div>
 
-        <!-- APARTADO 3: OBSERVACIONES Y ACCIÓN ÚNICA -->
+        <!-- APARTADO 3: ACCIÓN ÚNICA -->
         <div class="card-industrial">
           <h3>3. Observaciones Adicionales</h3>
           <textarea id="input-observaciones" class="ind-input ind-textarea" rows="3" placeholder="Notas sobre anomalías, variaciones térmicas o motivos de no cumplimiento..."></textarea>
