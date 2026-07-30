@@ -139,7 +139,7 @@
 </head>
 <body>
 
-  <!-- Modal Login (Inspectores Oficiales) -->
+  <!-- Modal Login -->
   <div id="login-modal" class="modal-overlay">
     <div class="modal-card">
       <h2>Módulo de Calidad</h2>
@@ -189,7 +189,6 @@
         <div class="section-card">
           <div class="section-title">1. Datos de Proceso e Inspección</div>
           
-          <!-- Buscador Máquina -->
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <label style="margin: 0;">Máquina: <span class="req-star">*</span></label>
@@ -200,7 +199,6 @@
             <div id="dropdown-maquina" class="combobox-dropdown"></div>
           </div>
 
-          <!-- Buscador Producto -->
           <div class="form-group">
             <label>Producto: <span class="req-star">*</span></label>
             <input type="text" id="input-search-producto" class="ind-input" placeholder="Toca aquí para ver lista o buscar producto..." autocomplete="off">
@@ -208,13 +206,11 @@
             <div id="dropdown-producto" class="combobox-dropdown"></div>
           </div>
 
-          <!-- Banner Specs -->
           <div id="specs-banner" class="specs-banner">
             <strong>Especificaciones del Producto:</strong><br>
             Color: <span id="spec-color">-</span> | Peso: <span id="spec-peso">-</span> | Ciclo: <span id="spec-ciclo">-</span> | Hilo/Int: <span id="spec-diametros">-</span>
           </div>
 
-          <!-- Campo Operario -->
           <div class="form-group">
             <label>Operario de Máquina:</label>
             <input type="text" id="input-operario" class="ind-input" placeholder="Nombre del operario en turno (Opcional)">
@@ -243,14 +239,14 @@
           </div>
         </div>
 
-        <!-- Sección 2: Mediciones OBLIGATORIAS -->
+        <!-- Sección 2: Especificaciones Técnicas OBLIGATORIAS (13 Parámetros) -->
         <div class="section-card">
-          <div class="section-title">2. Cumplimiento de Especificaciones y Mediciones (Obligatorias)</div>
+          <div class="section-title">2. Especificaciones Técnicas y Mediciones (Obligatorias)</div>
           
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Color y Apariencia <span class="req-star">*</span></span>
-              <input type="text" id="med-color" class="ind-input-sm med-field" placeholder="Ingresa detalle/tono obtenido">
+              <input type="text" id="med-color" class="ind-input-sm" placeholder="Detalle/Tono obtenido">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
             <input type="hidden" id="val-color" value="Cumple">
@@ -259,7 +255,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Espesor de Pared <span class="req-star">*</span></span>
-              <input type="text" id="med-espesor" class="ind-input-sm med-field" placeholder="Ingresa valor medido (Ej: 1.25 mm)">
+              <input type="text" id="med-espesor" class="ind-input-sm" placeholder="Ej: 1.25 mm">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button>
             <input type="hidden" id="val-espesor" value="Cumple">
@@ -268,7 +264,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Ciclo de Soplado/Inyección <span class="req-star">*</span></span>
-              <input type="text" id="med-ciclo" class="ind-input-sm med-field" placeholder="Tiempo medido (Ej: 12.0 s)">
+              <input type="text" id="med-ciclo" class="ind-input-sm" placeholder="Ej: 12.0 s">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button>
             <input type="hidden" id="val-ciclo" value="Cumple">
@@ -277,7 +273,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Peso del Producto <span class="req-star">*</span></span>
-              <input type="text" id="med-peso" class="ind-input-sm med-field" placeholder="Peso medido (Ej: 45.2 g)">
+              <input type="text" id="med-peso" class="ind-input-sm" placeholder="Ej: 45.2 g">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-peso">Cumple</button>
             <input type="hidden" id="val-peso" value="Cumple">
@@ -286,7 +282,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Calce y Ajuste de Tapa <span class="req-star">*</span></span>
-              <input type="text" id="med-calce" class="ind-input-sm med-field" placeholder="Ingresa detalle de calce obtenido">
+              <input type="text" id="med-calce" class="ind-input-sm" placeholder="Detalle de calce">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-calce">Cumple</button>
             <input type="hidden" id="val-calce" value="Cumple">
@@ -295,10 +291,73 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Hermeticidad / Filtración <span class="req-star">*</span></span>
-              <input type="text" id="med-filtracion" class="ind-input-sm med-field" placeholder="Ingresa prueba leak (Ej: OK a 5 PSI)">
+              <input type="text" id="med-filtracion" class="ind-input-sm" placeholder="Prueba leak (Ej: OK a 5 PSI)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
             <input type="hidden" id="val-filtracion" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Verificación Probador <span class="req-star">*</span></span>
+              <input type="text" id="med-probador" class="ind-input-sm" placeholder="Estado del probador (Ej: OK / Calibrado)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-probador">Cumple</button>
+            <input type="hidden" id="val-probador" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">H Cuello <span class="req-star">*</span></span>
+              <input type="text" id="med-hcuello" class="ind-input-sm" placeholder="Valor de H Cuello (Ej: 15.2 mm)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-hcuello">Cumple</button>
+            <input type="hidden" id="val-hcuello" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Φ Interior Gollete (mm) <span class="req-star">*</span></span>
+              <input type="text" id="med-phi-int" class="ind-input-sm" placeholder="Valor medido (Ej: 21.4 mm)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-phi-int">Cumple</button>
+            <input type="hidden" id="val-phi-int" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Φ Hilo Gollete (mm) <span class="req-star">*</span></span>
+              <input type="text" id="med-phi-hilo" class="ind-input-sm" placeholder="Valor medido (Ej: 27.8 mm)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-phi-hilo">Cumple</button>
+            <input type="hidden" id="val-phi-hilo" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Φ Trinquete (mm) <span class="req-star">*</span></span>
+              <input type="text" id="med-phi-trinquete" class="ind-input-sm" placeholder="Valor medido (Ej: 26.5 mm)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-phi-trinquete">Cumple</button>
+            <input type="hidden" id="val-phi-trinquete" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Capacidad Rebalse <span class="req-star">*</span></span>
+              <input type="text" id="med-rebalse" class="ind-input-sm" placeholder="Volumen medido (Ej: 520 ml)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-rebalse">Cumple</button>
+            <input type="hidden" id="val-rebalse" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Resistencia a la Caída Libre <span class="req-star">*</span></span>
+              <input type="text" id="med-caida" class="ind-input-sm" placeholder="Resultado de prueba (Ej: Resiste a 1.2m)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-caida">Cumple</button>
+            <input type="hidden" id="val-caida" value="Cumple">
           </div>
         </div>
 
