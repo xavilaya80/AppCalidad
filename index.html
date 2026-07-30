@@ -6,9 +6,6 @@
   <title>Control de Calidad - Planta Moldeo</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
-  
-  <!-- Librerías externas para PDF y Escáner QR -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
@@ -40,10 +37,10 @@
 
     /* Layout Principal */
     header {
-      background: var(--card-bg); padding: 15px 20px; display: flex;
+      background: var(--card-bg); padding: 12px 16px; display: flex;
       justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
     }
-    .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+    .user-info { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
     .badge-turno { background: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
 
     /* Navegación */
@@ -54,12 +51,10 @@
     }
     .nav-tab.active { color: var(--text-light); border-bottom-color: var(--accent-blue); background: var(--card-bg); }
 
-    /* Contenido de Vistas */
     .container { padding: 15px; max-width: 800px; margin: 0 auto; }
     .app-view { display: none; }
     .app-view.active { display: block; }
 
-    /* Formulario */
     .section-card {
       background: var(--card-bg); border-radius: 10px; padding: 15px;
       margin-bottom: 15px; border: 1px solid var(--border-color);
@@ -69,56 +64,69 @@
       border-bottom: 1px solid var(--border-color); padding-bottom: 6px;
     }
 
-    .form-group { margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; position: relative; }
     .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
-    
+    .req-star { color: #ef4444; font-weight: bold; }
+
     .ind-input, select, textarea {
       width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
       background: #0f172a; color: var(--text-light); font-size: 0.95rem; outline: none;
     }
     .ind-input:focus, select:focus, textarea:focus { border-color: var(--accent-blue); }
+    .input-error { border-color: #ef4444 !important; background-color: #450a0a !important; }
+
+    /* BUSCADOR CUSTOM DESPLEGABLE CON SCROLL */
+    .combobox-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0; background: #0f172a;
+      border: 1px solid var(--accent-blue); border-radius: 0 0 6px 6px;
+      max-height: 180px; overflow-y: auto; z-index: 500; display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .combobox-item {
+      padding: 10px; cursor: pointer; border-bottom: 1px solid #1e293b; font-size: 0.9rem;
+    }
+    .combobox-item:hover, .combobox-item.active { background: var(--accent-blue); color: white; }
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-    /* Banner Especificaciones */
     .specs-banner {
       background: #0284c722; border: 1px solid var(--accent-blue); border-radius: 6px;
       padding: 10px; margin-bottom: 12px; font-size: 0.85rem; display: none;
     }
 
-    /* Filas de Toggle */
     .toggle-group-row {
       display: flex; justify-content: space-between; align-items: center;
       background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 8px;
       border: 1px solid var(--border-color); gap: 10px;
     }
     .toggle-info { flex: 1; }
-    .toggle-label { display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
-    .ind-input-sm { width: 100%; padding: 6px; font-size: 0.85rem; background: #1e293b; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
+    .toggle-label { display: block; font-weight: bold; font-size: 0.88rem; margin-bottom: 4px; }
+    .ind-input-sm { width: 100%; padding: 8px; font-size: 0.85rem; background: #1e293b; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
 
     .btn-toggle {
       padding: 8px 16px; border-radius: 6px; font-weight: bold; border: none;
-      cursor: pointer; min-width: 100px; font-size: 0.85rem; transition: 0.2s;
+      cursor: pointer; min-width: 95px; font-size: 0.85rem; transition: 0.2s;
     }
     .active-cumple { background: var(--success-green); color: white; }
     .active-nocumple { background: var(--danger-red); color: white; }
 
-    /* Botones de Acción */
     .btn-primary {
       width: 100%; padding: 14px; background: var(--accent-blue); color: white;
       border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer;
+    }
+    .btn-danger {
+      padding: 8px 12px; background: var(--danger-red); color: white; border: none;
+      border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem;
     }
     .btn-secondary {
       padding: 8px 12px; background: #334155; color: white; border: none;
       border-radius: 6px; cursor: pointer; font-size: 0.85rem;
     }
 
-    /* Tabla Historial */
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
     th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
     th { background: #0f172a; color: var(--accent-blue); }
 
-    /* Scanner Modal */
     #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
     #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
   </style>
@@ -151,11 +159,12 @@
   <div id="app-content" style="display: none;">
     <header>
       <div>
-        <h1 style="font-size: 1.1rem;">Control de Calidad</h1>
+        <h1 style="font-size: 1rem;">Control de Calidad</h1>
         <span id="turno-header-badge" class="badge-turno">Turno --</span>
       </div>
       <div class="user-info">
         <span id="user-display">Inspector</span>
+        <button id="btn-cerrar-turno" class="btn-danger">🔴 Cerrar Turno</button>
         <button id="btn-logout" class="btn-secondary">Salir</button>
       </div>
     </header>
@@ -169,31 +178,39 @@
       <!-- VISTA FORMULARIO -->
       <div id="view-formulario" class="app-view active">
         
-        <!-- Sección 1: Datos de Proceso -->
+        <!-- Sección 1 -->
         <div class="section-card">
           <div class="section-title">1. Datos de Proceso e Inspección</div>
           
+          <!-- Buscador Máquina -->
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label style="margin: 0;">Máquina:</label>
-              <button type="button" id="btn-qr" class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;">📷 Escanear QR</button>
+              <label style="margin: 0;">Máquina: <span class="req-star">*</span></label>
+              <button type="button" id="btn-qr" class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">📷 Escanear QR</button>
             </div>
-            <!-- Búsqueda Integrada con datalist -->
-            <input type="text" id="select-maquina" list="lista-maquinas" class="ind-input" placeholder="🔍 Toca o escribe para buscar máquina..." autocomplete="off">
-            <datalist id="lista-maquinas"></datalist>
+            <input type="text" id="input-search-maquina" class="ind-input" placeholder="Toca para ver lista o escribe para buscar..." autocomplete="off">
+            <input type="hidden" id="select-maquina">
+            <div id="dropdown-maquina" class="combobox-dropdown"></div>
           </div>
 
+          <!-- Buscador Producto -->
           <div class="form-group">
-            <label>Producto:</label>
-            <!-- Búsqueda Integrada con datalist -->
-            <input type="text" id="select-producto" list="lista-productos" class="ind-input" placeholder="🔍 Toca o escribe para buscar producto..." autocomplete="off">
-            <datalist id="lista-productos"></datalist>
+            <label>Producto: <span class="req-star">*</span></label>
+            <input type="text" id="input-search-producto" class="ind-input" placeholder="Toca para ver lista o escribe para buscar..." autocomplete="off">
+            <input type="hidden" id="select-producto">
+            <div id="dropdown-producto" class="combobox-dropdown"></div>
           </div>
 
-          <!-- Banner Especificaciones -->
+          <!-- Banner Specs -->
           <div id="specs-banner" class="specs-banner">
             <strong>Especificaciones del Producto:</strong><br>
             Color: <span id="spec-color">-</span> | Peso: <span id="spec-peso">-</span> | Ciclo: <span id="spec-ciclo">-</span> | Hilo/Int: <span id="spec-diametros">-</span>
+          </div>
+
+          <!-- Campo Operario -->
+          <div class="form-group">
+            <label>Operario de Máquina:</label>
+            <input type="text" id="input-operario" class="ind-input" placeholder="Nombre del operario en turno (Opcional)">
           </div>
 
           <div class="grid-2">
@@ -219,14 +236,14 @@
           </div>
         </div>
 
-        <!-- Sección 2: Especificaciones y Mediciones -->
+        <!-- Sección 2: Mediciones OBLIGATORIAS -->
         <div class="section-card">
-          <div class="section-title">2. Cumplimiento de Especificaciones y Mediciones</div>
+          <div class="section-title">2. Cumplimiento de Especificaciones y Mediciones (Obligatorias)</div>
           
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Color y Apariencia</span>
-              <input type="text" id="med-color" class="ind-input-sm" placeholder="Detalle (Ej: Homogéneo / Tono OK)">
+              <span class="toggle-label">Color y Apariencia <span class="req-star">*</span></span>
+              <input type="text" id="med-color" class="ind-input-sm med-field" placeholder="Ingresa valor/detalle obtenido">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
             <input type="hidden" id="val-color" value="Cumple">
@@ -234,18 +251,17 @@
 
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Espesor de Pared</span>
-              <input type="text" id="med-espesor" class="ind-input-sm" placeholder="Valor medido (Ej: 1.25 mm)">
+              <span class="toggle-label">Espesor de Pared <span class="req-star">*</span></span>
+              <input type="text" id="med-espesor" class="ind-input-sm med-field" placeholder="Ingresa valor medido (Ej: 1.25 mm)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button>
             <input type="hidden" id="val-espesor" value="Cumple">
           </div>
 
-          <!-- Etiqueta Actualizada -->
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Ciclo de Soplado/Inyección</span>
-              <input type="text" id="med-ciclo" class="ind-input-sm" placeholder="Tiempo medido (Ej: 12.0 s)">
+              <span class="toggle-label">Ciclo de Soplado/Inyección <span class="req-star">*</span></span>
+              <input type="text" id="med-ciclo" class="ind-input-sm med-field" placeholder="Tiempo medido (Ej: 12.0 s)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button>
             <input type="hidden" id="val-ciclo" value="Cumple">
@@ -253,8 +269,8 @@
 
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Peso del Producto</span>
-              <input type="text" id="med-peso" class="ind-input-sm" placeholder="Peso medido (Ej: 45.2 g)">
+              <span class="toggle-label">Peso del Producto <span class="req-star">*</span></span>
+              <input type="text" id="med-peso" class="ind-input-sm med-field" placeholder="Peso medido (Ej: 45.2 g)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-peso">Cumple</button>
             <input type="hidden" id="val-peso" value="Cumple">
@@ -262,8 +278,8 @@
 
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Calce y Ajuste de Tapa</span>
-              <input type="text" id="med-calce" class="ind-input-sm" placeholder="Detalle (Ej: Ajuste correcto)">
+              <span class="toggle-label">Calce y Ajuste de Tapa <span class="req-star">*</span></span>
+              <input type="text" id="med-calce" class="ind-input-sm med-field" placeholder="Ingresa detalle de calce obtenido">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-calce">Cumple</button>
             <input type="hidden" id="val-calce" value="Cumple">
@@ -271,21 +287,21 @@
 
           <div class="toggle-group-row">
             <div class="toggle-info">
-              <span class="toggle-label">Hermeticidad / Filtración</span>
-              <input type="text" id="med-filtracion" class="ind-input-sm" placeholder="Detalle (Ej: Sin fuga a 5 PSI)">
+              <span class="toggle-label">Hermeticidad / Filtración <span class="req-star">*</span></span>
+              <input type="text" id="med-filtracion" class="ind-input-sm med-field" placeholder="Ingresa prueba de leak (Ej: OK a 5 PSI)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
             <input type="hidden" id="val-filtracion" value="Cumple">
           </div>
         </div>
 
-        <!-- Sección 3: Observaciones -->
+        <!-- Sección 3 -->
         <div class="section-card">
           <div class="section-title">3. Observaciones Adicionales</div>
-          <textarea id="input-observaciones" rows="3" placeholder="Ingresa comentarios sobre novedades, ajustes o desviaciones..."></textarea>
+          <textarea id="input-observaciones" rows="3" placeholder="Comentarios o desviaciones..."></textarea>
         </div>
 
-        <button type="button" id="btn-imprimir-pdf" class="btn-primary">📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO</button>
+        <button type="button" id="btn-guardar-registro" class="btn-primary">💾 GUARDAR REGISTRO DE INSPECCIÓN</button>
       </div>
 
       <!-- VISTA HISTORIAL -->
@@ -304,12 +320,13 @@
                   <th>Fecha/Hora</th>
                   <th>Turno</th>
                   <th>Máquina</th>
+                  <th>Operario</th>
                   <th>Producto</th>
                   <th>Observaciones</th>
                 </tr>
               </thead>
               <tbody id="tabla-historial-body">
-                <tr><td colspan="7" style="text-align:center; padding: 15px;">Cargando historial...</td></tr>
+                <tr><td colspan="8" style="text-align:center; padding: 15px;">Cargando historial...</td></tr>
               </tbody>
             </table>
           </div>
