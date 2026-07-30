@@ -184,22 +184,24 @@ function setupEventListeners() {
     }
   });
 
-  // Logout
+  // Logout manual
   document.getElementById('btn-logout').addEventListener('click', () => {
     sessionStorage.removeItem('usuario_calidad');
     checkSession();
   });
 
-  // CERRAR TURNO
+  // CERRAR TURNO + GENERACIÓN DE PDFS + CIERRE AUTOMÁTICO DE SESIÓN
   document.getElementById('btn-cerrar-turno').addEventListener('click', async () => {
     const turno = obtenerTurnoAuto();
-    if (!confirm(`¿Deseas cerrar el ${turno} y generar los archivos PDF consolidados por máquina en Drive?`)) {
+    const inspector = sessionStorage.getItem('usuario_calidad') || 'Inspector';
+
+    if (!confirm(`¿Atención ${inspector}! ¿Deseas cerrar el ${turno}, generar los reportes PDF por máquina en Drive y finalizar tu sesión?`)) {
       return;
     }
 
     const btn = document.getElementById('btn-cerrar-turno');
     btn.disabled = true;
-    btn.innerText = "Procesando...";
+    btn.innerText = "Procesando y Cerrando...";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -208,13 +210,15 @@ function setupEventListeners() {
         body: JSON.stringify({ action: 'cerrarTurno', turnoActual: turno })
       });
       const res = await response.json();
-      alert(res.message);
+      alert(`✅ ${res.message}\n\nTurno finalizado. Tu sesión se cerrará a continuación.`);
     } catch (err) {
-      alert("Proceso de Cierre de Turno iniciado en el servidor de Google Drive.");
+      alert("✅ Proceso de Cierre de Turno enviado a Google Drive. Finalizando sesión...");
     }
 
-    btn.disabled = false;
-    btn.innerText = "🔴 Cerrar Turno";
+    // Limpieza de formulario y cierre de sesión automático
+    resetFormulario();
+    sessionStorage.removeItem('usuario_calidad');
+    checkSession(); // Redirige de inmediato al modal de inicio de sesión
   });
 
   // GUARDAR REGISTRO CON VALIDACIÓN ESTRICTA
