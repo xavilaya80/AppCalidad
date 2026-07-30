@@ -35,7 +35,7 @@ function actualizarTurnoAuto() {
   if (turnoHeader) turnoHeader.innerText = turnoActual;
 }
 
-// 2. VERIFICACIÓN DE SESIÓN (BLOQUEO OBLIGATORIO)
+// 2. VERIFICACIÓN DE SESIÓN (SOLO INSPECTORES)
 function checkSession() {
   const usuario = sessionStorage.getItem('usuario_calidad');
   const modal = document.getElementById('login-modal');
@@ -78,7 +78,7 @@ function setupNavigation() {
 
 // 4. EVENTOS Y BOTONES
 function setupEventListeners() {
-  // Login
+  // Login de Inspectores
   document.getElementById('btn-login').addEventListener('click', () => {
     const userSelect = document.getElementById('login-inspector').value;
     const pin = document.getElementById('login-pin').value;
@@ -89,7 +89,7 @@ function setupEventListeners() {
       return;
     }
 
-    if (pin === '1234' || pin === '0000' || pin === '9999') {
+    if (pin === '1234' || pin === '0000') {
       sessionStorage.setItem('usuario_calidad', userSelect);
       document.getElementById('login-error').style.display = 'none';
       checkSession();
@@ -105,7 +105,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // Ficha técnica
+  // Carga de especificaciones
   document.getElementById('select-producto').addEventListener('change', (e) => {
     const selected = productosCache.find(p => p.id === e.target.value);
     const banner = document.getElementById('specs-banner');
@@ -222,7 +222,7 @@ async function loadCatalogData() {
   }
 }
 
-// 8. RENDERIZAR HISTORIAL FILTRADO
+// 8. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR
 function renderHistorialInspector() {
   const usuarioActual = sessionStorage.getItem('usuario_calidad');
   const tbody = document.getElementById('tabla-historial-body');
@@ -326,7 +326,7 @@ function resetFormulario() {
   actualizarTurnoAuto();
 }
 
-// 11. ESCÁNER QR
+// 11. ESCÁNER QR NATIVO
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex';
   html5QrCode = new Html5Qrcode("reader");
