@@ -70,7 +70,6 @@ function setupNavigation() {
   });
 }
 
-// BUSCADORES DESPLEGABLES TOUCH PARA TABLETS
 function setupCustomComboboxes() {
   const inputMaq = document.getElementById('input-search-maquina');
   const dropMaq = document.getElementById('dropdown-maquina');
@@ -164,164 +163,6 @@ function actualizarFichaProducto(prodId) {
   }
 }
 
-// PLANTILLA ESTRUCTURADA CON ESTILOS INLINE BLINDADOS
-function crearElementoPDF() {
-  const inspector = sessionStorage.getItem('usuario_calidad') || '---';
-  const maquinaText = document.getElementById('input-search-maquina').value || '-';
-  const productoText = document.getElementById('input-search-producto').value || '-';
-  const operario = document.getElementById('input-operario').value || 'Sin especificar';
-  const turno = document.getElementById('input-turno').value || '-';
-  const cavidad = document.getElementById('input-cavidad').value || '-';
-  const loteMp = document.getElementById('input-lote-mp').value || '-';
-  const loteBxa = document.getElementById('input-lote-bxa').value || '-';
-  const obs = document.getElementById('input-observaciones').value || 'Sin observaciones.';
-  const fechaHora = new Date().toLocaleString('es-CL');
-
-  const specColor = document.getElementById('spec-color').innerText;
-  const specPeso = document.getElementById('spec-peso').innerText;
-  const specCiclo = document.getElementById('spec-ciclo').innerText;
-  const specDiam = document.getElementById('spec-diametros').innerText;
-
-  const items = [
-    { label: 'Color y Apariencia', med: document.getElementById('med-color').value || 'Sin detalle', val: document.getElementById('val-color').value },
-    { label: 'Espesor de Pared', med: document.getElementById('med-espesor').value || 'Sin detalle', val: document.getElementById('val-espesor').value },
-    { label: 'Ciclo de Soplado/Inyección', med: document.getElementById('med-ciclo').value || 'Sin detalle', val: document.getElementById('val-ciclo').value },
-    { label: 'Peso del Producto', med: document.getElementById('med-peso').value || 'Sin detalle', val: document.getElementById('val-peso').value },
-    { label: 'Calce y Ajuste de Tapa', med: document.getElementById('med-calce').value || 'Sin detalle', val: document.getElementById('val-calce').value },
-    { label: 'Hermeticidad / Filtración', med: document.getElementById('med-filtracion').value || 'Sin detalle', val: document.getElementById('val-filtracion').value },
-  ];
-
-  const container = document.createElement('div');
-  container.style.width = '700px';
-  container.style.padding = '20px';
-  container.style.backgroundColor = '#ffffff';
-  container.style.color = '#0f172a';
-  container.style.fontFamily = 'Arial, sans-serif';
-  container.style.boxSizing = 'border-box';
-
-  container.innerHTML = `
-    <div style="border-bottom: 3px solid #0284c7; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; color: #0f172a;">
-      <div>
-        <h1 style="font-size: 16px; color: #0f172a; margin: 0; font-weight: bold;">CONTROL DE CALIDAD - INSPECCIONES EN PROCESO</h1>
-        <span style="font-size: 11px; color: #0284c7; font-weight: bold;">REPORTE OFICIAL DE PLANTA DE MOLDEO</span>
-      </div>
-      <div style="text-align: right; font-size: 10px; color: #475569;">
-        <div><strong>Inspector:</strong> ${inspector}</div>
-        <div><strong>Operario:</strong> ${operario}</div>
-        <div><strong>Fecha:</strong> ${fechaHora}</div>
-        <div><strong>Turno:</strong> ${turno}</div>
-      </div>
-    </div>
-
-    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 15px; color: #0f172a;">
-      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; font-weight: bold;">1. Datos de Proceso e Inspección</h3>
-      <table style="width: 100%; font-size: 10px; border-collapse: collapse; color: #0f172a;">
-        <tr>
-          <td style="padding: 4px; width: 50%;"><strong>Máquina:</strong> ${maquinaText}</td>
-          <td style="padding: 4px; width: 50%;"><strong>Producto:</strong> ${productoText}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px;"><strong>Cavidad / Molde N°:</strong> ${cavidad}</td>
-          <td style="padding: 4px;"><strong>Lote MP:</strong> ${loteMp}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px;"><strong>Lote BXA:</strong> ${loteBxa}</td>
-          <td style="padding: 4px;"><strong>Estándares:</strong> C: ${specColor} | P: ${specPeso} | Sec: ${specCiclo} | Ø: ${specDiam}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="margin-bottom: 15px;">
-      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; font-weight: bold;">2. Cumplimiento de Especificaciones y Mediciones</h3>
-      <table style="width: 100%; font-size: 10px; border-collapse: collapse; border: 1px solid #cbd5e1; color: #0f172a;">
-        <thead>
-          <tr style="background-color: #0f172a; color: #ffffff;">
-            <th style="padding: 6px; text-align: left;">Parámetro Evaluado</th>
-            <th style="padding: 6px; text-align: left;">Medición Obtenida</th>
-            <th style="padding: 6px; text-align: center; width: 90px;">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => `
-            <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-              <td style="padding: 6px; font-weight: bold; color: #0f172a;">${item.label}</td>
-              <td style="padding: 6px; color: #0f172a;">${item.med}</td>
-              <td style="padding: 6px; text-align: center;">
-                <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; color: #ffffff; background-color: ${item.val === 'Cumple' ? '#15803d' : '#b91c1c'};">
-                  ${item.val.toUpperCase()}
-                </span>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-
-    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; color: #0f172a;">
-      <h3 style="font-size: 12px; margin: 0 0 4px 0; color: #1e293b; font-weight: bold;">3. Observaciones Adicionales</h3>
-      <p style="font-size: 10px; margin: 0; color: #334155; white-space: pre-wrap;">${obs}</p>
-    </div>
-  `;
-
-  return container;
-}
-
-// PROCESO UNIFICADO DE CAPTURA DE PDF (RESUELVE EL FALLO DE PANTALLA EN BLANCO)
-async function procesarPDFYGuardar() {
-  const scrollYPrevio = window.scrollY;
-  const element = crearElementoPDF();
-  
-  // Contenedor aislado en el origen absoluto del documento
-  const printWrapper = document.createElement('div');
-  printWrapper.style.position = 'absolute';
-  printWrapper.style.top = '0';
-  printWrapper.style.left = '0';
-  printWrapper.style.width = '100%';
-  printWrapper.style.backgroundColor = '#ffffff';
-  printWrapper.style.zIndex = '9999999';
-  printWrapper.appendChild(element);
-  document.body.appendChild(printWrapper);
-
-  // Mover temporalmente al origen
-  window.scrollTo(0, 0);
-  await new Promise(r => setTimeout(r, 450));
-
-  const maquinaVal = document.getElementById('select-maquina').value || 'MAQ';
-  const fechaHoy = new Date().toISOString().slice(0, 10);
-  const nombreArchivo = `Inspeccion_${maquinaVal.replace(/[^a-zA-Z0-9]/g, '_')}_${fechaHoy}.pdf`;
-
-  const opt = {
-    margin:       0.2,
-    filename:     nombreArchivo,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { 
-      scale: 2, 
-      useCORS: true, 
-      logging: false,
-      scrollY: 0,
-      scrollX: 0
-    },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
-
-  let pdfBase64 = null;
-
-  try {
-    const worker = html2pdf().set(opt).from(element);
-    pdfBase64 = await worker.outputPdf('datauristring');
-    await worker.save();
-  } catch (err) {
-    console.error("Error procesando PDF:", err);
-  } finally {
-    if (document.body.contains(printWrapper)) {
-      document.body.removeChild(printWrapper);
-    }
-    window.scrollTo(0, scrollYPrevio);
-  }
-
-  return pdfBase64;
-}
-
 function setupEventListeners() {
   // Login
   document.getElementById('btn-login').addEventListener('click', () => {
@@ -380,14 +221,13 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GUARDAR INSPECCIÓN + PDF + CIERRE AUTOMÁTICO DE SESIÓN
+  // GUARDAR INSPECCIÓN + PDF EN SERVIDOR + CIERRE AUTOMÁTICO
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
     const inputMaq = document.getElementById('input-search-maquina');
     const inputProd = document.getElementById('input-search-producto');
 
-    // 1. Validaciones
     if (!maquinaId) {
       alert("⚠️ Por favor selecciona una Máquina válida de la lista.");
       inputMaq.classList.add('input-error');
@@ -406,7 +246,7 @@ function setupEventListeners() {
       inputProd.classList.remove('input-error');
     }
 
-    // 2. VALIDACIÓN ESTRICTA DE MEDICIONES
+    // VALIDACIÓN ESTRICTA DE MEDICIONES
     const medicionesDef = [
       { id: 'med-color', nombre: 'Color y Apariencia' },
       { id: 'med-espesor', nombre: 'Espesor de Pared' },
@@ -441,20 +281,18 @@ function setupEventListeners() {
 
     const btnGuardar = document.getElementById('btn-guardar-registro');
     btnGuardar.disabled = true;
-    btnGuardar.innerText = "Procesando PDF y Guardando...";
+    btnGuardar.innerText = "Guardando en Servidor...";
 
-    // 3. Captura limpia de PDF y envío
-    const pdfBase64 = await procesarPDFYGuardar();
-    const exito = await enviarAGoogleSheets(pdfBase64);
+    const exito = await enviarAGoogleSheets();
 
     if (exito) {
-      alert("¡Registro guardado exitosamente y PDF generado!\n\nTu sesión se cerrará a continuación para permitir el ingreso del siguiente inspector.");
+      alert("¡Registro guardado exitosamente y PDF generado en Google Drive!\n\nTu sesión se cerrará a continuación para permitir el ingreso del siguiente inspector.");
       resetFormulario();
       sessionStorage.removeItem('usuario_calidad');
       checkSession();
     } else {
       btnGuardar.disabled = false;
-      btnGuardar.innerText = "📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO";
+      btnGuardar.innerText = "💾 GUARDAR Y CERRAR SESIÓN";
     }
   });
 
@@ -529,7 +367,7 @@ function renderHistorialInspector() {
   `).join('');
 }
 
-async function enviarAGoogleSheets(pdfBase64Data) {
+async function enviarAGoogleSheets() {
   const maquinaId = document.getElementById('select-maquina').value;
   const productoId = document.getElementById('select-producto').value;
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
@@ -553,7 +391,6 @@ async function enviarAGoogleSheets(pdfBase64Data) {
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
     observaciones: `${obsUsuario} ${resumenMediciones}`.trim(),
-    pdfBase64: pdfBase64Data || null,
     
     cavidad_molde: document.getElementById('input-cavidad').value,
     color: `${document.getElementById('val-color').value} (${medColor})`,
