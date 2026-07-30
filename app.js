@@ -1,4 +1,4 @@
-// REGISTRO DE SERVICE WORKER
+// REGISTRO DE SERVICE WORKER PARA PWA
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
@@ -116,7 +116,7 @@ function setupEventListeners() {
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
 
-  // ACCIÓN PRINCIPAL: GUARDAR DATOS + RESPALDAR PDF EN DRIVE + IMPRIMIR/DESCARGAR
+  // ACCIÓN PRINCIPAL: GUARDAR DATOS + RESPALDAR PDF EN DRIVE
   document.getElementById('btn-imprimir-pdf').addEventListener('click', async () => {
     const maquina = document.getElementById('select-maquina').value;
     const producto = document.getElementById('select-producto').value;
@@ -128,16 +128,16 @@ function setupEventListeners() {
 
     const btnPDF = document.getElementById('btn-imprimir-pdf');
     btnPDF.disabled = true;
-    btnPDF.innerText = "Guardando en Drive y procesando...";
+    btnPDF.innerText = "Procesando PDF y Guardando...";
 
-    // 1. Generar representación Base64 del PDF
+    // 1. Generar representación Base64 del PDF desde la plantilla limpia
     const pdfBase64 = await obtenerPDFBase64();
 
     // 2. Enviar a Google Sheets y Google Drive
     const exito = await enviarAGoogleSheets(pdfBase64);
 
     if (exito) {
-      // 3. Descargar copia local para impresión
+      // 3. Descargar copia local limpia
       generarReportePDF();
       alert("¡Registro guardado en Google Sheets y PDF respaldado en Google Drive!");
       resetFormulario();
@@ -172,34 +172,143 @@ function setupToggles() {
   });
 }
 
-// CONVIERTE LA PANTALLA EN UN STRING DE BASE64
+// CONSTRUCTOR DE PLANTILLA IMPRESA PARA PDF COMPLETO EN 1 PÁGINA
+function crearElementoPDF() {
+  const inspector = sessionStorage.getItem('usuario_calidad') || '---';
+  const maquinaSelect = document.getElementById('select-maquina');
+  const maquinaText = maquinaSelect.options[maquinaSelect.selectedIndex]?.text || '-';
+  const productoSelect = document.getElementById('select-producto');
+  const productoText = productoSelect.options[productoSelect.selectedIndex]?.text || '-';
+  const turno = document.getElementById('input-turno').value || '-';
+  const cavidad = document.getElementById('input-cavidad').value || '-';
+  const loteMp = document.getElementById('input-lote-mp').value || '-';
+  const loteBxa = document.getElementById('input-lote-bxa').value || '-';
+  const obs = document.getElementById('input-observaciones').value || 'Sin observaciones.';
+  const fechaHora = new Date().toLocaleString('es-CL');
+
+  const specColor = document.getElementById('spec-color').innerText;
+  const specPeso = document.getElementById('spec-peso').innerText;
+  const specCiclo = document.getElementById('spec-ciclo').innerText;
+  const specDiam = document.getElementById('spec-diametros').innerText;
+
+  const items = [
+    { label: 'Color y Apariencia', med: document.getElementById('med-color').value || 'Sin detalle', val: document.getElementById('val-color').value },
+    { label: 'Espesor de Pared', med: document.getElementById('med-espesor').value || 'Sin detalle', val: document.getElementById('val-espesor').value },
+    { label: 'Ciclo de Soplado', med: document.getElementById('med-ciclo').value || 'Sin detalle', val: document.getElementById('val-ciclo').value },
+    { label: 'Peso del Producto', med: document.getElementById('med-peso').value || 'Sin detalle', val: document.getElementById('val-peso').value },
+    { label: 'Calce y Ajuste de Tapa', med: document.getElementById('med-calce').value || 'Sin detalle', val: document.getElementById('val-calce').value },
+    { label: 'Hermeticidad / Filtración', med: document.getElementById('med-filtracion').value || 'Sin detalle', val: document.getElementById('val-filtracion').value },
+  ];
+
+  const container = document.createElement('div');
+  container.style.padding = '24px';
+  container.style.fontFamily = "Arial, sans-serif";
+  container.style.color = '#0f172a';
+  container.style.backgroundColor = '#ffffff';
+  container.style.width = '700px';
+
+  container.innerHTML = `
+    <div style="border-bottom: 3px solid #0284c7; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="font-size: 16px; color: #0f172a; margin: 0;">CONTROL DE CALIDAD - INSPECCIONES EN PROCESO</h1>
+        <span style="font-size: 11px; color: #0284c7; font-weight: bold;">REPORTE OFICIAL DE PLANTA DE MOLDEO</span>
+      </div>
+      <div style="text-align: right; font-size: 10px; color: #475569;">
+        <div><strong>Inspector:</strong> ${inspector}</div>
+        <div><strong>Fecha:</strong> ${fechaHora}</div>
+        <div><strong>Turno:</strong> ${turno}</div>
+      </div>
+    </div>
+
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 15px;">
+      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">1. Datos de Proceso e Inspección</h3>
+      <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 3px; width: 50%;"><strong>Máquina:</strong> ${maquinaText}</td>
+          <td style="padding: 3px; width: 50%;"><strong>Producto:</strong> ${productoText}</td>
+        </tr>
+        <tr>
+          <td style="padding: 3px;"><strong>Cavidad / Molde N°:</strong> ${cavidad}</td>
+          <td style="padding: 3px;"><strong>Lote MP:</strong> ${loteMp}</td>
+        </tr>
+        <tr>
+          <td style="padding: 3px;"><strong>Lote BXA:</strong> ${loteBxa}</td>
+          <td style="padding: 3px;"><strong>Estándares:</strong> C: ${specColor} | P: ${specPeso} | Sec: ${specCiclo} | Ø: ${specDiam}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin-bottom: 15px;">
+      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px;">2. Cumplimiento de Especificaciones y Mediciones</h3>
+      <table style="width: 100%; font-size: 10px; border-collapse: collapse; border: 1px solid #cbd5e1;">
+        <thead>
+          <tr style="background: #0f172a; color: white;">
+            <th style="padding: 5px; text-align: left;">Parámetro Evaluado</th>
+            <th style="padding: 5px; text-align: left;">Medición Obtenida</th>
+            <th style="padding: 5px; text-align: center; width: 90px;">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 5px; font-weight: bold;">${item.label}</td>
+              <td style="padding: 5px;">${item.med}</td>
+              <td style="padding: 5px; text-align: center;">
+                <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; color: white; background-color: ${item.val === 'Cumple' ? '#15803d' : '#b91c1c'};">
+                  ${item.val.toUpperCase()}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px;">
+      <h3 style="font-size: 12px; margin: 0 0 4px 0; color: #1e293b;">3. Observaciones Adicionales</h3>
+      <p style="font-size: 10px; margin: 0; color: #334155; white-space: pre-wrap;">${obs}</p>
+    </div>
+  `;
+
+  return container;
+}
+
 async function obtenerPDFBase64() {
-  const element = document.getElementById('view-formulario');
+  const element = crearElementoPDF();
+  document.body.appendChild(element);
+
   const opt = {
-    margin:       0.3,
+    margin:       0.2,
     filename:     'reporte.pdf',
-    image:        { type: 'jpeg', quality: 0.95 },
+    image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
   
-  return await html2pdf().set(opt).from(element).outputPdf('datauristring');
+  const base64 = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+  document.body.removeChild(element);
+  return base64;
 }
 
 function generarReportePDF() {
-  const element = document.getElementById('view-formulario');
-  const maquina = document.getElementById('select-maquina').value || 'SinMaquina';
+  const element = crearElementoPDF();
+  document.body.appendChild(element);
+
+  const maquinaSelect = document.getElementById('select-maquina');
+  const maquinaText = maquinaSelect.options[maquinaSelect.selectedIndex]?.text || 'MAQ';
   const fecha = new Date().toISOString().slice(0, 10);
 
   const opt = {
-    margin:       0.3,
-    filename:     `Inspeccion_${maquina}_${fecha}.pdf`,
+    margin:       0.2,
+    filename:     `Inspeccion_${maquinaText.replace(/[^a-zA-Z0-9]/g, '_')}_${fecha}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
 
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(element).save().then(() => {
+    document.body.removeChild(element);
+  });
 }
 
 async function loadCatalogData() {
