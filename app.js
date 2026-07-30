@@ -188,7 +188,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // 1. GENERAR CONSOLIDADO POR MÁQUINA AHORA (BAJO DEMANDA SIN CERRAR SESIÓN)
+  // GENERAR CONSOLIDADO AHORA
   const btnPdfAhora = document.getElementById('btn-generar-pdf-ahora');
   if (btnPdfAhora) {
     btnPdfAhora.addEventListener('click', async () => {
@@ -213,7 +213,7 @@ function setupEventListeners() {
     });
   }
 
-  // 2. CERRAR TURNO (CONSOLIDACIÓN FINAL + CIERRE DE SESIÓN)
+  // CERRAR TURNO
   document.getElementById('btn-cerrar-turno').addEventListener('click', async () => {
     const turno = obtenerTurnoAuto();
     const inspector = sessionStorage.getItem('usuario_calidad') || 'Inspector';
@@ -242,7 +242,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // 3. GUARDADO RÁPIDO DE REGISTRO (SIN INTERRUMPIR LA SESIÓN)
+  // GUARDAR REGISTRO DE INSPECCIÓN (VALIDACIÓN DE 13 CAMPOS)
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
@@ -269,7 +269,14 @@ function setupEventListeners() {
       { id: 'med-ciclo', nombre: 'Ciclo de Soplado/Inyección' },
       { id: 'med-peso', nombre: 'Peso del Producto' },
       { id: 'med-calce', nombre: 'Calce y Ajuste de Tapa' },
-      { id: 'med-filtracion', nombre: 'Hermeticidad / Filtración' }
+      { id: 'med-filtracion', nombre: 'Hermeticidad / Filtración' },
+      { id: 'med-probador', nombre: 'Verificación Probador' },
+      { id: 'med-hcuello', nombre: 'H Cuello' },
+      { id: 'med-phi-int', nombre: 'Φ Interior Gollete' },
+      { id: 'med-phi-hilo', nombre: 'Φ Hilo Gollete' },
+      { id: 'med-phi-trinquete', nombre: 'Φ Trinquete' },
+      { id: 'med-rebalse', nombre: 'Capacidad Rebalse' },
+      { id: 'med-caida', nombre: 'Resistencia a la Caída Libre' }
     ];
 
     let faltantes = [];
@@ -387,15 +394,7 @@ async function enviarAGoogleSheets() {
   const productoId = document.getElementById('select-producto').value;
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
 
-  const medColor = document.getElementById('med-color').value.trim();
-  const medEspesor = document.getElementById('med-espesor').value.trim();
-  const medCiclo = document.getElementById('med-ciclo').value.trim();
-  const medPeso = document.getElementById('med-peso').value.trim();
-  const medCalce = document.getElementById('med-calce').value.trim();
-  const medFiltracion = document.getElementById('med-filtracion').value.trim();
   const obsUsuario = document.getElementById('input-observaciones').value.trim();
-
-  const resumenMediciones = `[MEDICIONES -> Peso: ${medPeso} | Espesor: ${medEspesor} | Ciclo: ${medCiclo} | Color: ${medColor} | Calce: ${medCalce} | Leak: ${medFiltracion}]`;
 
   const payload = {
     turno: obtenerTurnoAuto(),
@@ -405,15 +404,48 @@ async function enviarAGoogleSheets() {
     operario: document.getElementById('input-operario').value,
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
-    observaciones: `${obsUsuario} ${resumenMediciones}`.trim(),
-    
+    observaciones: obsUsuario,
     cavidad_molde: document.getElementById('input-cavidad').value,
-    color: `${document.getElementById('val-color').value} (${medColor})`,
-    espesor_pared: `${document.getElementById('val-espesor').value} (${medEspesor})`,
-    ciclo: `${document.getElementById('val-ciclo').value} (${medCiclo})`,
-    peso: `${document.getElementById('val-peso').value} (${medPeso})`,
-    calce_ajuste: `${document.getElementById('val-calce').value} (${medCalce})`,
-    filtracion: `${document.getElementById('val-filtracion').value} (${medFiltracion})`
+
+    // Mediciones y estados
+    color_med: document.getElementById('med-color').value.trim(),
+    color_val: document.getElementById('val-color').value,
+    
+    espesor_med: document.getElementById('med-espesor').value.trim(),
+    espesor_val: document.getElementById('val-espesor').value,
+    
+    ciclo_med: document.getElementById('med-ciclo').value.trim(),
+    ciclo_val: document.getElementById('val-ciclo').value,
+    
+    peso_med: document.getElementById('med-peso').value.trim(),
+    peso_val: document.getElementById('val-peso').value,
+    
+    calce_med: document.getElementById('med-calce').value.trim(),
+    calce_val: document.getElementById('val-calce').value,
+    
+    filtracion_med: document.getElementById('med-filtracion').value.trim(),
+    filtracion_val: document.getElementById('val-filtracion').value,
+    
+    probador_med: document.getElementById('med-probador').value.trim(),
+    probador_val: document.getElementById('val-probador').value,
+    
+    hcuello_med: document.getElementById('med-hcuello').value.trim(),
+    hcuello_val: document.getElementById('val-hcuello').value,
+    
+    phi_int_med: document.getElementById('med-phi-int').value.trim(),
+    phi_int_val: document.getElementById('val-phi-int').value,
+    
+    phi_hilo_med: document.getElementById('med-phi-hilo').value.trim(),
+    phi_hilo_val: document.getElementById('val-phi-hilo').value,
+    
+    phi_trinquete_med: document.getElementById('med-phi-trinquete').value.trim(),
+    phi_trinquete_val: document.getElementById('val-phi-trinquete').value,
+    
+    rebalse_med: document.getElementById('med-rebalse').value.trim(),
+    rebalse_val: document.getElementById('val-rebalse').value,
+    
+    caida_med: document.getElementById('med-caida').value.trim(),
+    caida_val: document.getElementById('val-caida').value
   };
 
   try {
