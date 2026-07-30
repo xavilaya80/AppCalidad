@@ -1,12 +1,11 @@
-// REGISTRO DE SERVICE WORKER PARA PWA
+// REGISTRO DE SERVICE WORKER
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
 
-// ⚠️ PEGA AQUÍ LA URL DESPLEGADA DE TU GOOGLE APPS SCRIPT
+// ⚠️ PEGA AQUÍ TU URL DESPLEGADA DE GOOGLE APPS SCRIPT
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
-// ESTADO LOCAL
 let productosCache = [];
 let maquinasCache = [];
 let historialCache = [];
@@ -20,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
 });
 
-// 1. DETECCIÓN AUTOMÁTICA DE TURNO
 function obtenerTurnoAuto() {
   const hora = new Date().getHours();
   return (hora >= 8 && hora < 20) ? "Turno Mañana" : "Turno Noche";
@@ -35,7 +33,6 @@ function actualizarTurnoAuto() {
   if (turnoHeader) turnoHeader.innerText = turnoActual;
 }
 
-// 2. VERIFICACIÓN DE SESIÓN (SOLO INSPECTORES)
 function checkSession() {
   const usuario = sessionStorage.getItem('usuario_calidad');
   const modal = document.getElementById('login-modal');
@@ -58,7 +55,6 @@ function checkSession() {
   }
 }
 
-// 3. NAVEGACIÓN
 function setupNavigation() {
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -76,9 +72,7 @@ function setupNavigation() {
   });
 }
 
-// 4. EVENTOS Y BOTONES
 function setupEventListeners() {
-  // Login de Inspectores
   document.getElementById('btn-login').addEventListener('click', () => {
     const userSelect = document.getElementById('login-inspector').value;
     const pin = document.getElementById('login-pin').value;
@@ -99,13 +93,11 @@ function setupEventListeners() {
     }
   });
 
-  // Logout
   document.getElementById('btn-logout').addEventListener('click', () => {
     sessionStorage.removeItem('usuario_calidad');
     checkSession();
   });
 
-  // Carga de especificaciones
   document.getElementById('select-producto').addEventListener('change', (e) => {
     const selected = productosCache.find(p => p.id === e.target.value);
     const banner = document.getElementById('specs-banner');
@@ -121,11 +113,10 @@ function setupEventListeners() {
     }
   });
 
-  // QR
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
 
-  // ACCIÓN ÚNICA: Guardar en Google Sheets + Generar PDF
+  // ACCIÓN PRINCIPAL: GUARDAR DATOS + RESPALDAR PDF EN DRIVE + IMPRIMIR/DESCARGAR
   document.getElementById('btn-imprimir-pdf').addEventListener('click', async () => {
     const maquina = document.getElementById('select-maquina').value;
     const producto = document.getElementById('select-producto').value;
@@ -137,13 +128,18 @@ function setupEventListeners() {
 
     const btnPDF = document.getElementById('btn-imprimir-pdf');
     btnPDF.disabled = true;
-    btnPDF.innerText = "Guardando e Imprimiendo...";
+    btnPDF.innerText = "Guardando en Drive y procesando...";
 
-    const exito = await enviarAGoogleSheets();
+    // 1. Generar representación Base64 del PDF
+    const pdfBase64 = await obtenerPDFBase64();
+
+    // 2. Enviar a Google Sheets y Google Drive
+    const exito = await enviarAGoogleSheets(pdfBase64);
 
     if (exito) {
+      // 3. Descargar copia local para impresión
       generarReportePDF();
-      alert("¡Registro guardado en Google Sheets y PDF generado exitosamente!");
+      alert("¡Registro guardado en Google Sheets y PDF respaldado en Google Drive!");
       resetFormulario();
       loadCatalogData();
     }
@@ -152,11 +148,9 @@ function setupEventListeners() {
     btnPDF.innerText = "📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO";
   });
 
-  // Refrescar Historial
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
 }
 
-// 5. BOTONES TOGGLE CUMPLE / NO CUMPLE
 function setupToggles() {
   document.querySelectorAll('.btn-toggle').forEach(btn => {
     btn.onclick = function(e) {
@@ -178,7 +172,20 @@ function setupToggles() {
   });
 }
 
-// 6. GENERADOR DE PDF
+// CONVIERTE LA PANTALLA EN UN STRING DE BASE64
+async function obtenerPDFBase64() {
+  const element = document.getElementById('view-formulario');
+  const opt = {
+    margin:       0.3,
+    filename:     'reporte.pdf',
+    image:        { type: 'jpeg', quality: 0.95 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  
+  return await html2pdf().set(opt).from(element).outputPdf('datauristring');
+}
+
 function generarReportePDF() {
   const element = document.getElementById('view-formulario');
   const maquina = document.getElementById('select-maquina').value || 'SinMaquina';
@@ -195,7 +202,6 @@ function generarReportePDF() {
   html2pdf().set(opt).from(element).save();
 }
 
-// 7. CARGA DE CATÁLOGOS DESDE GOOGLE SHEETS
 async function loadCatalogData() {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -222,7 +228,6 @@ async function loadCatalogData() {
   }
 }
 
-// 8. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR
 function renderHistorialInspector() {
   const usuarioActual = sessionStorage.getItem('usuario_calidad');
   const tbody = document.getElementById('tabla-historial-body');
@@ -249,8 +254,7 @@ function renderHistorialInspector() {
   `).join('');
 }
 
-// 9. ENVÍO DE DATOS A GOOGLE SHEETS
-async function enviarAGoogleSheets() {
+async function enviarAGoogleSheets(pdfBase64Data) {
   const maquina = document.getElementById('select-maquina').value;
   const producto = document.getElementById('select-producto').value;
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
@@ -258,11 +262,6 @@ async function enviarAGoogleSheets() {
   if (!inspectorActual) {
     alert("Sesión no identificada. Por favor inicia sesión.");
     checkSession();
-    return false;
-  }
-
-  if (!maquina || !producto) {
-    alert("Por favor selecciona una máquina y un producto.");
     return false;
   }
 
@@ -284,6 +283,7 @@ async function enviarAGoogleSheets() {
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
     observaciones: `${obsUsuario} ${resumenMediciones}`.trim(),
+    pdfBase64: pdfBase64Data || null,
     
     cavidad_molde: document.getElementById('input-cavidad').value,
     color: `${document.getElementById('val-color').value} (${medColor || 'S/D'})`,
@@ -303,13 +303,12 @@ async function enviarAGoogleSheets() {
     });
     return true;
   } catch (err) {
-    console.error("Error al enviar a Google Sheets:", err);
-    alert("Error de conexión con Google Sheets.");
+    console.error("Error al enviar a Google Sheets / Drive:", err);
+    alert("Error de conexión al guardar.");
     return false;
   }
 }
 
-// 10. LIMPIAR FORMULARIO
 function resetFormulario() {
   document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => el.value = '');
   document.getElementById('select-maquina').value = '';
@@ -326,7 +325,6 @@ function resetFormulario() {
   actualizarTurnoAuto();
 }
 
-// 11. ESCÁNER QR NATIVO
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex';
   html5QrCode = new Html5Qrcode("reader");
