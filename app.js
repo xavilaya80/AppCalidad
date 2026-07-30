@@ -67,24 +67,40 @@ function setupNavigation() {
   });
 }
 
-// LÓGICA DE BUSCADORES MÁQUINA Y PRODUCTO (DESPLEGABLE INTERACTIVO REAL)
+// LÓGICA DE MÁQUINAS Y PRODUCTOS COMPATIBLE CON PANTALLAS TÁCTILES / TABLETS
 function setupCustomComboboxes() {
-  // Máquina
   const inputMaq = document.getElementById('input-search-maquina');
   const dropMaq = document.getElementById('dropdown-maquina');
   
-  inputMaq.addEventListener('focus', () => renderComboboxOptions(inputMaq, dropMaq, maquinasCache, 'maquina'));
-  inputMaq.addEventListener('input', () => renderComboboxOptions(inputMaq, dropMaq, maquinasCache, 'maquina'));
+  const abrirMaq = (e) => {
+    if(e) e.stopPropagation();
+    renderComboboxOptions(inputMaq, dropMaq, maquinasCache, 'maquina');
+  };
+  inputMaq.addEventListener('focus', abrirMaq);
+  inputMaq.addEventListener('click', abrirMaq);
+  inputMaq.addEventListener('touchstart', abrirMaq);
+  inputMaq.addEventListener('input', abrirMaq);
 
-  // Producto
   const inputProd = document.getElementById('input-search-producto');
   const dropProd = document.getElementById('dropdown-producto');
   
-  inputProd.addEventListener('focus', () => renderComboboxOptions(inputProd, dropProd, productosCache, 'producto'));
-  inputProd.addEventListener('input', () => renderComboboxOptions(inputProd, dropProd, productosCache, 'producto'));
+  const abrirProd = (e) => {
+    if(e) e.stopPropagation();
+    renderComboboxOptions(inputProd, dropProd, productosCache, 'producto');
+  };
+  inputProd.addEventListener('focus', abrirProd);
+  inputProd.addEventListener('click', abrirProd);
+  inputProd.addEventListener('touchstart', abrirProd);
+  inputProd.addEventListener('input', abrirProd);
 
-  // Ocultar dropdowns al hacer clic fuera
+  // Cerrar desplegables al tocar fuera
   document.addEventListener('click', (e) => {
+    if (!e.target.closest('.form-group')) {
+      dropMaq.style.display = 'none';
+      dropProd.style.display = 'none';
+    }
+  });
+  document.addEventListener('touchstart', (e) => {
     if (!e.target.closest('.form-group')) {
       dropMaq.style.display = 'none';
       dropProd.style.display = 'none';
@@ -110,15 +126,21 @@ function renderComboboxOptions(inputEl, dropEl, data, tipo) {
       const labelText = (item.nombre && item.nombre !== item.id) ? `${item.nombre} (${item.id})` : item.id;
       div.innerText = labelText;
       
-      div.onclick = () => {
+      const seleccionarItem = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         inputEl.value = labelText;
         document.getElementById(`select-${tipo}`).value = item.id;
+        inputEl.classList.remove('input-error');
         dropEl.style.display = 'none';
 
         if (tipo === 'producto') {
           actualizarFichaProducto(item.id);
         }
       };
+
+      div.addEventListener('click', seleccionarItem);
+      div.addEventListener('touchstart', seleccionarItem);
       dropEl.appendChild(div);
     });
   }
@@ -168,7 +190,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // BOTÓN CERRAR TURNO (GENERACIÓN DE PDFS POR MÁQUINA)
+  // CERRAR TURNO
   document.getElementById('btn-cerrar-turno').addEventListener('click', async () => {
     const turno = obtenerTurnoAuto();
     if (!confirm(`¿Deseas cerrar el ${turno} y generar los archivos PDF consolidados por máquina en Drive?`)) {
@@ -195,31 +217,62 @@ function setupEventListeners() {
     btn.innerText = "🔴 Cerrar Turno";
   });
 
-  // GUARDAR INSPECCIÓN
+  // GUARDAR REGISTRO CON VALIDACIÓN ESTRICTA
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
+    const inputMaq = document.getElementById('input-search-maquina');
+    const inputProd = document.getElementById('input-search-producto');
 
-    if (!maquinaId || !productoId) {
-      alert("Por favor selecciona una Máquina y un Producto válidos de la lista.");
+    // 1. Validar Selección de Máquina y Producto
+    if (!maquinaId) {
+      alert("⚠️ Por favor selecciona una Máquina válida de la lista.");
+      inputMaq.classList.add('input-error');
+      inputMaq.focus();
       return;
+    } else {
+      inputMaq.classList.remove('input-error');
     }
 
-    // VALIDACIÓN ESTRICTA DE MEDICIONES OBLIGATORIAS
-    const medFields = document.querySelectorAll('.med-field');
-    let faltanMediciones = false;
+    if (!productoId) {
+      alert("⚠️ Por favor selecciona un Producto válido de la lista.");
+      inputProd.classList.add('input-error');
+      inputProd.focus();
+      return;
+    } else {
+      inputProd.classList.remove('input-error');
+    }
 
-    medFields.forEach(field => {
-      if (!field.value.trim()) {
-        field.classList.add('input-error');
-        faltanMediciones = true;
+    // 2. VALIDACIÓN ESTRICTA DE LAS 6 MEDICIONES
+    const medicionesDef = [
+      { id: 'med-color', nombre: 'Color y Apariencia' },
+      { id: 'med-espesor', nombre: 'Espesor de Pared' },
+      { id: 'med-ciclo', nombre: 'Ciclo de Soplado/Inyección' },
+      { id: 'med-peso', nombre: 'Peso del Producto' },
+      { id: 'med-calce', nombre: 'Calce y Ajuste de Tapa' },
+      { id: 'med-filtracion', nombre: 'Hermeticidad / Filtración' }
+    ];
+
+    let faltantes = [];
+    let primerCampoErr = null;
+
+    medicionesDef.forEach(m => {
+      const el = document.getElementById(m.id);
+      if (!el || !el.value.trim()) {
+        el.classList.add('input-error');
+        faltantes.push(m.nombre);
+        if (!primerCampoErr) primerCampoErr = el;
       } else {
-        field.classList.remove('input-error');
+        el.classList.remove('input-error');
       }
     });
 
-    if (faltanMediciones) {
-      alert("⚠️ Debes ingresar un valor o detalle en TODAS las mediciones antes de guardar.");
+    if (faltantes.length > 0) {
+      alert("⚠️ ATENCIÓN: No se puede guardar la inspección. Faltan completar las siguientes mediciones:\n\n• " + faltantes.join("\n• "));
+      if (primerCampoErr) {
+        primerCampoErr.focus();
+        primerCampoErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -315,13 +368,13 @@ async function enviarAGoogleSheets() {
   const productoId = document.getElementById('select-producto').value;
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
 
-  const medColor = document.getElementById('med-color').value;
-  const medEspesor = document.getElementById('med-espesor').value;
-  const medCiclo = document.getElementById('med-ciclo').value;
-  const medPeso = document.getElementById('med-peso').value;
-  const medCalce = document.getElementById('med-calce').value;
-  const medFiltracion = document.getElementById('med-filtracion').value;
-  const obsUsuario = document.getElementById('input-observaciones').value;
+  const medColor = document.getElementById('med-color').value.trim();
+  const medEspesor = document.getElementById('med-espesor').value.trim();
+  const medCiclo = document.getElementById('med-ciclo').value.trim();
+  const medPeso = document.getElementById('med-peso').value.trim();
+  const medCalce = document.getElementById('med-calce').value.trim();
+  const medFiltracion = document.getElementById('med-filtracion').value.trim();
+  const obsUsuario = document.getElementById('input-observaciones').value.trim();
 
   const resumenMediciones = `[MEDICIONES -> Peso: ${medPeso} | Espesor: ${medEspesor} | Ciclo: ${medCiclo} | Color: ${medColor} | Calce: ${medCalce} | Leak: ${medFiltracion}]`;
 
@@ -359,10 +412,13 @@ async function enviarAGoogleSheets() {
 }
 
 function resetFormulario() {
-  document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => el.value = '');
+  document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => {
+    el.value = '';
+    el.classList.remove('input-error');
+  });
+  
   document.getElementById('select-maquina').value = '';
   document.getElementById('select-producto').value = '';
-  document.querySelectorAll('.med-field').forEach(f => f.classList.remove('input-error'));
   document.getElementById('specs-banner').style.display = 'none';
   
   document.querySelectorAll('.btn-toggle').forEach(btn => {
@@ -386,6 +442,7 @@ function startQRScanner() {
       if (match) {
         document.getElementById('select-maquina').value = match.id;
         document.getElementById('input-search-maquina').value = match.nombre ? `${match.nombre} (${match.id})` : match.id;
+        document.getElementById('input-search-maquina').classList.remove('input-error');
       } else {
         document.getElementById('select-maquina').value = decodedText;
         document.getElementById('input-search-maquina').value = decodedText;
