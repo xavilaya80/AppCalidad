@@ -1,3 +1,4 @@
+// REGISTRO DE SERVICE WORKER PARA PWA
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
@@ -5,6 +6,7 @@ if ('serviceWorker' in navigator) {
 // ⚠️ PEGA AQUÍ TU URL DESPLEGADA DE GOOGLE APPS SCRIPT
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
+// ESTADO LOCAL
 let productosCache = [];
 let maquinasCache = [];
 let historialCache = [];
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
 });
 
+// 1. DETECCIÓN AUTOMÁTICA DE TURNO
 function obtenerTurnoAuto() {
   const hora = new Date().getHours();
   return (hora >= 8 && hora < 20) ? "Turno Mañana" : "Turno Noche";
@@ -32,6 +35,7 @@ function actualizarTurnoAuto() {
   if (turnoHeader) turnoHeader.innerText = turnoActual;
 }
 
+// 2. VERIFICACIÓN Y BLOQUEO DE SESIÓN
 function checkSession() {
   const usuario = sessionStorage.getItem('usuario_calidad');
   const modal = document.getElementById('login-modal');
@@ -54,6 +58,7 @@ function checkSession() {
   }
 }
 
+// 3. NAVEGACIÓN ENTRE PESTAÑAS
 function setupNavigation() {
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -71,7 +76,9 @@ function setupNavigation() {
   });
 }
 
+// 4. CONFIGURACIÓN DE EVENTOS GENERALES
 function setupEventListeners() {
+  // Login de Inspectores
   document.getElementById('btn-login').addEventListener('click', () => {
     const userSelect = document.getElementById('login-inspector').value;
     const pin = document.getElementById('login-pin').value;
@@ -92,11 +99,13 @@ function setupEventListeners() {
     }
   });
 
+  // Logout
   document.getElementById('btn-logout').addEventListener('click', () => {
     sessionStorage.removeItem('usuario_calidad');
     checkSession();
   });
 
+  // Ficha técnica dinámica
   document.getElementById('select-producto').addEventListener('change', (e) => {
     const selected = productosCache.find(p => p.id === e.target.value);
     const banner = document.getElementById('specs-banner');
@@ -112,216 +121,66 @@ function setupEventListeners() {
     }
   });
 
+  // Escáner QR
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
 
-  document.getElementById('btn-imprimir-pdf').addEventListener('click', async () => {
-    const maquina = document.getElementById('select-maquina').value;
-    const producto = document.getElementById('select-producto').value;
+  // Botón Guardar Registro (Compatibilidad de IDs)
+  const btnGuardar = document.getElementById('btn-guardar-registro') || document.getElementById('btn-imprimir-pdf');
+  if (btnGuardar) {
+    btnGuardar.addEventListener('click', async () => {
+      const maquina = document.getElementById('select-maquina').value;
+      const producto = document.getElementById('select-producto').value;
 
-    if (!maquina || !producto) {
-      alert("Por favor selecciona Máquina y Producto antes de generar el reporte.");
-      return;
-    }
+      if (!maquina || !producto) {
+        alert("Por favor selecciona Máquina y Producto.");
+        return;
+      }
 
-    const btnPDF = document.getElementById('btn-imprimir-pdf');
-    btnPDF.disabled = true;
-    btnPDF.innerText = "Procesando PDF y Guardando...";
+      btnGuardar.disabled = true;
+      btnGuardar.innerText = "Guardando...";
 
-    // 1. Generar Base64 optimizado del PDF
-    const pdfBase64 = await obtenerPDFBase64();
+      const exito = await enviarAGoogleSheets();
 
-    // 2. Enviar a Google Sheets y Drive
-    const exito = await enviarAGoogleSheets(pdfBase64);
+      if (exito) {
+        alert("¡Registro guardado exitosamente!");
+        resetFormulario();
+        await loadCatalogData();
+      }
 
-    if (exito) {
-      // 3. Descargar copia local
-      generarReportePDF();
-      
-      // 4. Pausa para permitir la persistencia en Google Sheets
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      alert("¡Registro guardado en Google Sheets, PDF respaldado e Historial actualizado!");
-      resetFormulario();
-      await loadCatalogData();
-    }
+      btnGuardar.disabled = false;
+      btnGuardar.innerText = "💾 GUARDAR REGISTRO";
+    });
+  }
 
-    btnPDF.disabled = false;
-    btnPDF.innerText = "📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO";
-  });
-
+  // Refrescar Historial manualmente
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
 }
 
+// 5. BOTONES TOGGLE CUMPLE / NO CUMPLE (DELEGACIÓN GLOBAL CORREGIDA)
 function setupToggles() {
-  document.querySelectorAll('.btn-toggle').forEach(btn => {
-    btn.onclick = function(e) {
-      e.preventDefault();
-      const targetInput = document.getElementById(this.dataset.target);
-      
-      if (this.classList.contains('active-cumple')) {
-        this.classList.remove('active-cumple');
-        this.classList.add('active-nocumple');
-        this.innerText = 'No Cumple';
-        if (targetInput) targetInput.value = 'No Cumple';
-      } else {
-        this.classList.remove('active-nocumple');
-        this.classList.add('active-cumple');
-        this.innerText = 'Cumple';
-        if (targetInput) targetInput.value = 'Cumple';
-      }
-    };
-  });
-}
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-toggle');
+    if (!btn) return;
 
-// CONSTRUCTOR CON POSICIONAMIENTO VISIBLE PARA HTML2CANVAS
-function crearElementoPDF() {
-  const inspector = sessionStorage.getItem('usuario_calidad') || '---';
-  const maquinaSelect = document.getElementById('select-maquina');
-  const maquinaText = maquinaSelect.options[maquinaSelect.selectedIndex]?.text || '-';
-  const productoSelect = document.getElementById('select-producto');
-  const productoText = productoSelect.options[productoSelect.selectedIndex]?.text || '-';
-  const turno = document.getElementById('input-turno').value || '-';
-  const cavidad = document.getElementById('input-cavidad').value || '-';
-  const loteMp = document.getElementById('input-lote-mp').value || '-';
-  const loteBxa = document.getElementById('input-lote-bxa').value || '-';
-  const obs = document.getElementById('input-observaciones').value || 'Sin observaciones.';
-  const fechaHora = new Date().toLocaleString('es-CL');
+    e.preventDefault();
+    const targetInput = document.getElementById(btn.dataset.target);
 
-  const specColor = document.getElementById('spec-color').innerText;
-  const specPeso = document.getElementById('spec-peso').innerText;
-  const specCiclo = document.getElementById('spec-ciclo').innerText;
-  const specDiam = document.getElementById('spec-diametros').innerText;
-
-  const items = [
-    { label: 'Color y Apariencia', med: document.getElementById('med-color').value || 'Sin detalle', val: document.getElementById('val-color').value },
-    { label: 'Espesor de Pared', med: document.getElementById('med-espesor').value || 'Sin detalle', val: document.getElementById('val-espesor').value },
-    { label: 'Ciclo de Soplado', med: document.getElementById('med-ciclo').value || 'Sin detalle', val: document.getElementById('val-ciclo').value },
-    { label: 'Peso del Producto', med: document.getElementById('med-peso').value || 'Sin detalle', val: document.getElementById('val-peso').value },
-    { label: 'Calce y Ajuste de Tapa', med: document.getElementById('med-calce').value || 'Sin detalle', val: document.getElementById('val-calce').value },
-    { label: 'Hermeticidad / Filtración', med: document.getElementById('med-filtracion').value || 'Sin detalle', val: document.getElementById('val-filtracion').value },
-  ];
-
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.zIndex = '99999';
-  container.style.padding = '24px';
-  container.style.fontFamily = "Arial, sans-serif";
-  container.style.color = '#0f172a';
-  container.style.backgroundColor = '#ffffff';
-  container.style.width = '700px';
-
-  container.innerHTML = `
-    <div style="border-bottom: 3px solid #0284c7; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h1 style="font-size: 16px; color: #0f172a; margin: 0;">CONTROL DE CALIDAD - INSPECCIONES EN PROCESO</h1>
-        <span style="font-size: 11px; color: #0284c7; font-weight: bold;">REPORTE OFICIAL DE PLANTA DE MOLDEO</span>
-      </div>
-      <div style="text-align: right; font-size: 10px; color: #475569;">
-        <div><strong>Inspector:</strong> ${inspector}</div>
-        <div><strong>Fecha:</strong> ${fechaHora}</div>
-        <div><strong>Turno:</strong> ${turno}</div>
-      </div>
-    </div>
-
-    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 15px;">
-      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">1. Datos de Proceso e Inspección</h3>
-      <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
-        <tr>
-          <td style="padding: 3px; width: 50%;"><strong>Máquina:</strong> ${maquinaText}</td>
-          <td style="padding: 3px; width: 50%;"><strong>Producto:</strong> ${productoText}</td>
-        </tr>
-        <tr>
-          <td style="padding: 3px;"><strong>Cavidad / Molde N°:</strong> ${cavidad}</td>
-          <td style="padding: 3px;"><strong>Lote MP:</strong> ${loteMp}</td>
-        </tr>
-        <tr>
-          <td style="padding: 3px;"><strong>Lote BXA:</strong> ${loteBxa}</td>
-          <td style="padding: 3px;"><strong>Estándares:</strong> C: ${specColor} | P: ${specPeso} | Sec: ${specCiclo} | Ø: ${specDiam}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="margin-bottom: 15px;">
-      <h3 style="font-size: 12px; margin: 0 0 6px 0; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px;">2. Cumplimiento de Especificaciones y Mediciones</h3>
-      <table style="width: 100%; font-size: 10px; border-collapse: collapse; border: 1px solid #cbd5e1;">
-        <thead>
-          <tr style="background: #0f172a; color: white;">
-            <th style="padding: 5px; text-align: left;">Parámetro Evaluado</th>
-            <th style="padding: 5px; text-align: left;">Medición Obtenida</th>
-            <th style="padding: 5px; text-align: center; width: 90px;">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 5px; font-weight: bold;">${item.label}</td>
-              <td style="padding: 5px;">${item.med}</td>
-              <td style="padding: 5px; text-align: center;">
-                <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; color: white; background-color: ${item.val === 'Cumple' ? '#15803d' : '#b91c1c'};">
-                  ${item.val.toUpperCase()}
-                </span>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-
-    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px;">
-      <h3 style="font-size: 12px; margin: 0 0 4px 0; color: #1e293b;">3. Observaciones Adicionales</h3>
-      <p style="font-size: 10px; margin: 0; color: #334155; white-space: pre-wrap;">${obs}</p>
-    </div>
-  `;
-
-  return container;
-}
-
-async function obtenerPDFBase64() {
-  const element = crearElementoPDF();
-  document.body.appendChild(element);
-
-  // Pausa de 150ms para asegurar el renderizado del DOM en pantalla
-  await new Promise(r => setTimeout(r, 150));
-
-  const opt = {
-    margin:       0.2,
-    filename:     'reporte.pdf',
-    image:        { type: 'jpeg', quality: 0.85 },
-    html2canvas:  { scale: 1.5, useCORS: true, scrollX: 0, scrollY: 0 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
-  
-  const base64 = await html2pdf().set(opt).from(element).outputPdf('datauristring');
-  document.body.removeChild(element);
-  return base64;
-}
-
-function generarReportePDF() {
-  const element = crearElementoPDF();
-  document.body.appendChild(element);
-
-  const maquinaSelect = document.getElementById('select-maquina');
-  const maquinaText = maquinaSelect.options[maquinaSelect.selectedIndex]?.text || 'MAQ';
-  const fecha = new Date().toISOString().slice(0, 10);
-
-  const opt = {
-    margin:       0.2,
-    filename:     `Inspeccion_${maquinaText.replace(/[^a-zA-Z0-9]/g, '_')}_${fecha}.pdf`,
-    image:        { type: 'jpeg', quality: 0.85 },
-    html2canvas:  { scale: 1.5, useCORS: true, scrollX: 0, scrollY: 0 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
-
-  html2pdf().set(opt).from(element).save().then(() => {
-    if (document.body.contains(element)) {
-      document.body.removeChild(element);
+    if (btn.classList.contains('active-cumple')) {
+      btn.classList.remove('active-cumple');
+      btn.classList.add('active-nocumple');
+      btn.innerText = 'No Cumple';
+      if (targetInput) targetInput.value = 'No Cumple';
+    } else {
+      btn.classList.remove('active-nocumple');
+      btn.classList.add('active-cumple');
+      btn.innerText = 'Cumple';
+      if (targetInput) targetInput.value = 'Cumple';
     }
   });
 }
 
+// 6. CARGA DE DATOS DESDE GOOGLE SHEETS
 async function loadCatalogData() {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -350,13 +209,13 @@ async function loadCatalogData() {
   }
 }
 
+// 7. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR LOGUEADO
 function renderHistorialInspector() {
   const usuarioActual = (sessionStorage.getItem('usuario_calidad') || '').trim().toLowerCase();
   const tbody = document.getElementById('tabla-historial-body');
 
   if (!tbody) return;
 
-  // Comparación flexible e insensible a mayúsculas/espacios
   const misRegistros = historialCache.filter(item => 
     (item.inspector || '').trim().toLowerCase() === usuarioActual
   );
@@ -379,7 +238,8 @@ function renderHistorialInspector() {
   `).join('');
 }
 
-async function enviarAGoogleSheets(pdfBase64Data) {
+// 8. ENVÍO DE DATOS A GOOGLE SHEETS
+async function enviarAGoogleSheets() {
   const maquina = document.getElementById('select-maquina').value;
   const producto = document.getElementById('select-producto').value;
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
@@ -408,7 +268,6 @@ async function enviarAGoogleSheets(pdfBase64Data) {
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
     observaciones: `${obsUsuario} ${resumenMediciones}`.trim(),
-    pdfBase64: pdfBase64Data || null,
     
     cavidad_molde: document.getElementById('input-cavidad').value,
     color: `${document.getElementById('val-color').value} (${medColor || 'S/D'})`,
@@ -428,12 +287,13 @@ async function enviarAGoogleSheets(pdfBase64Data) {
     });
     return true;
   } catch (err) {
-    console.error("Error al enviar a Google Sheets / Drive:", err);
+    console.error("Error al enviar a Google Sheets:", err);
     alert("Error de conexión al guardar.");
     return false;
   }
 }
 
+// 9. LIMPIAR FORMULARIO
 function resetFormulario() {
   document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => el.value = '');
   document.getElementById('select-maquina').value = '';
@@ -450,6 +310,7 @@ function resetFormulario() {
   actualizarTurnoAuto();
 }
 
+// 10. ESCÁNER QR NATIVO
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex';
   html5QrCode = new Html5Qrcode("reader");
