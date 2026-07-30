@@ -76,7 +76,72 @@ function setupNavigation() {
   });
 }
 
-// 4. CONFIGURACIÓN DE EVENTOS GENERALES
+// 4. CONFIGURACIÓN DE BUSCADORES DINÁMICOS EN MÁQUINAS Y PRODUCTOS
+function setupSearchInputs() {
+  const selectMaq = document.getElementById('select-maquina');
+  if (selectMaq && !document.getElementById('search-maquina')) {
+    const inputMaq = document.createElement('input');
+    inputMaq.id = 'search-maquina';
+    inputMaq.type = 'text';
+    inputMaq.placeholder = '🔍 Escribe para buscar máquina...';
+    inputMaq.className = 'ind-input-sm';
+    inputMaq.style.width = '100%';
+    inputMaq.style.marginBottom = '6px';
+    inputMaq.style.boxSizing = 'border-box';
+    inputMaq.addEventListener('input', (e) => filtrarMaquinas(e.target.value));
+    selectMaq.parentNode.insertBefore(inputMaq, selectMaq);
+  }
+
+  const selectProd = document.getElementById('select-producto');
+  if (selectProd && !document.getElementById('search-producto')) {
+    const inputProd = document.createElement('input');
+    inputProd.id = 'search-producto';
+    inputProd.type = 'text';
+    inputProd.placeholder = '🔍 Escribe para buscar producto...';
+    inputProd.className = 'ind-input-sm';
+    inputProd.style.width = '100%';
+    inputProd.style.marginBottom = '6px';
+    inputProd.style.boxSizing = 'border-box';
+    inputProd.addEventListener('input', (e) => filtrarProductos(e.target.value));
+    selectProd.parentNode.insertBefore(inputProd, selectProd);
+  }
+}
+
+function filtrarMaquinas(filtro = '') {
+  const selectMaq = document.getElementById('select-maquina');
+  if (!selectMaq) return;
+  const term = filtro.toLowerCase().trim();
+  const valActual = selectMaq.value;
+
+  selectMaq.innerHTML = '<option value="">-- Seleccionar Máquina --</option>';
+  maquinasCache
+    .filter(m => (m.nombre || '').toLowerCase().includes(term) || (m.id || '').toLowerCase().includes(term))
+    .forEach(m => {
+      const texto = (m.nombre && m.nombre !== m.id) ? `${m.nombre} (${m.id})` : m.id;
+      selectMaq.innerHTML += `<option value="${m.id}">${texto}</option>`;
+    });
+  selectMaq.value = valActual;
+}
+
+function filtrarProductos(filtro = '') {
+  const selectProd = document.getElementById('select-producto');
+  if (!selectProd) return;
+  const term = filtro.toLowerCase().trim();
+  const valActual = selectProd.value;
+
+  selectProd.innerHTML = '<option value="">-- Seleccionar Producto --</option>';
+  productosCache
+    .filter(p => (p.nombre || '').toLowerCase().includes(term) || (p.id || '').toLowerCase().includes(term))
+    .forEach(p => {
+      const texto = (p.nombre && p.nombre !== p.id) ? `${p.nombre} (${p.id})` : p.id;
+      selectProd.innerHTML += `<option value="${p.id}">${texto}</option>`;
+    });
+  
+  selectProd.value = valActual;
+  selectProd.dispatchEvent(new Event('change'));
+}
+
+// 5. CONFIGURACIÓN DE EVENTOS GENERALES
 function setupEventListeners() {
   // Login de Inspectores
   document.getElementById('btn-login').addEventListener('click', () => {
@@ -125,7 +190,7 @@ function setupEventListeners() {
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
 
-  // Botón Guardar Registro (Compatibilidad de IDs)
+  // Botón Guardar Registro
   const btnGuardar = document.getElementById('btn-guardar-registro') || document.getElementById('btn-imprimir-pdf');
   if (btnGuardar) {
     btnGuardar.addEventListener('click', async () => {
@@ -157,7 +222,7 @@ function setupEventListeners() {
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
 }
 
-// 5. BOTONES TOGGLE CUMPLE / NO CUMPLE (DELEGACIÓN GLOBAL CORREGIDA)
+// 6. BOTONES TOGGLE CUMPLE / NO CUMPLE
 function setupToggles() {
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.btn-toggle');
@@ -180,7 +245,7 @@ function setupToggles() {
   });
 }
 
-// 6. CARGA DE DATOS DESDE GOOGLE SHEETS
+// 7. CARGA DE DATOS DESDE GOOGLE SHEETS
 async function loadCatalogData() {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -190,17 +255,13 @@ async function loadCatalogData() {
     productosCache = data.productos || [];
     historialCache = data.historial || [];
 
-    const selectMaq = document.getElementById('select-maquina');
-    selectMaq.innerHTML = '<option value="">-- Seleccionar Máquina --</option>';
-    maquinasCache.forEach(m => {
-      selectMaq.innerHTML += `<option value="${m.id}">${m.nombre} (${m.estado})</option>`;
-    });
+    setupSearchInputs();
 
-    const selectProd = document.getElementById('select-producto');
-    selectProd.innerHTML = '<option value="">-- Seleccionar Producto --</option>';
-    productosCache.forEach(p => {
-      selectProd.innerHTML += `<option value="${p.id}">${p.nombre} (${p.id})</option>`;
-    });
+    const inputMaq = document.getElementById('search-maquina');
+    const inputProd = document.getElementById('search-producto');
+    
+    filtrarMaquinas(inputMaq ? inputMaq.value : '');
+    filtrarProductos(inputProd ? inputProd.value : '');
 
     renderHistorialInspector();
 
@@ -209,7 +270,7 @@ async function loadCatalogData() {
   }
 }
 
-// 7. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR LOGUEADO
+// 8. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR LOGUEADO
 function renderHistorialInspector() {
   const usuarioActual = (sessionStorage.getItem('usuario_calidad') || '').trim().toLowerCase();
   const tbody = document.getElementById('tabla-historial-body');
@@ -238,7 +299,7 @@ function renderHistorialInspector() {
   `).join('');
 }
 
-// 8. ENVÍO DE DATOS A GOOGLE SHEETS
+// 9. ENVÍO DE DATOS A GOOGLE SHEETS
 async function enviarAGoogleSheets() {
   const maquina = document.getElementById('select-maquina').value;
   const producto = document.getElementById('select-producto').value;
@@ -293,11 +354,18 @@ async function enviarAGoogleSheets() {
   }
 }
 
-// 9. LIMPIAR FORMULARIO
+// 10. LIMPIAR FORMULARIO
 function resetFormulario() {
   document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => el.value = '');
-  document.getElementById('select-maquina').value = '';
-  document.getElementById('select-producto').value = '';
+  
+  const searchMaq = document.getElementById('search-maquina');
+  const searchProd = document.getElementById('search-producto');
+  if (searchMaq) searchMaq.value = '';
+  if (searchProd) searchProd.value = '';
+
+  filtrarMaquinas('');
+  filtrarProductos('');
+
   document.getElementById('specs-banner').style.display = 'none';
   
   document.querySelectorAll('.btn-toggle').forEach(btn => {
@@ -310,7 +378,7 @@ function resetFormulario() {
   actualizarTurnoAuto();
 }
 
-// 10. ESCÁNER QR NATIVO
+// 11. ESCÁNER QR NATIVO
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex';
   html5QrCode = new Html5Qrcode("reader");
@@ -318,9 +386,13 @@ function startQRScanner() {
     { facingMode: "environment" },
     { fps: 10, qrbox: { width: 220, height: 220 } },
     (decodedText) => {
+      const searchMaq = document.getElementById('search-maquina');
+      if (searchMaq) searchMaq.value = '';
+      filtrarMaquinas('');
+
       const selectMaq = document.getElementById('select-maquina');
       for (let i = 0; i < selectMaq.options.length; i++) {
-        if (selectMaq.options[i].value === decodedText || selectMaq.options[i].text.includes(decodedText)) {
+        if (selectMaq.options[i].value === decodedText || selectMaq.options[i].text.toLowerCase().includes(decodedText.toLowerCase())) {
           selectMaq.selectedIndex = i;
           break;
         }
