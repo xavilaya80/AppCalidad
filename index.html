@@ -2,241 +2,326 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Control de Calidad - Inspecciones en Proceso</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Calidad - Planta Moldeo</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   
+  <!-- Librerías externas para PDF y Escáner QR -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --accent-blue: #0284c7;
+      --text-light: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --success-green: #16a34a;
+      --danger-red: #dc2626;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding-bottom: 30px; }
+
+    /* Modal Login */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.95); display: flex; justify-content: center;
+      align-items: center; z-index: 1000;
+    }
+    .modal-card {
+      background: var(--card-bg); padding: 25px; border-radius: 12px;
+      width: 90%; max-width: 400px; border: 1px solid var(--border-color); text-align: center;
+    }
+    .modal-card h2 { margin-bottom: 15px; color: var(--accent-blue); font-size: 1.3rem; }
+
+    /* Layout Principal */
+    header {
+      background: var(--card-bg); padding: 15px 20px; display: flex;
+      justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
+    }
+    .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+    .badge-turno { background: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
+
+    /* Navegación */
+    nav { display: flex; background: #1b263b; border-bottom: 1px solid var(--border-color); }
+    .nav-tab {
+      flex: 1; padding: 12px; text-align: center; background: none; border: none;
+      color: var(--text-muted); font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent;
+    }
+    .nav-tab.active { color: var(--text-light); border-bottom-color: var(--accent-blue); background: var(--card-bg); }
+
+    /* Contenido de Vistas */
+    .container { padding: 15px; max-width: 800px; margin: 0 auto; }
+    .app-view { display: none; }
+    .app-view.active { display: block; }
+
+    /* Formulario */
+    .section-card {
+      background: var(--card-bg); border-radius: 10px; padding: 15px;
+      margin-bottom: 15px; border: 1px solid var(--border-color);
+    }
+    .section-title {
+      font-size: 1rem; color: var(--accent-blue); margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-color); padding-bottom: 6px;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
+    
+    .ind-input, select, textarea {
+      width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
+      background: #0f172a; color: var(--text-light); font-size: 0.95rem; outline: none;
+    }
+    .ind-input:focus, select:focus, textarea:focus { border-color: var(--accent-blue); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* Banner Especificaciones */
+    .specs-banner {
+      background: #0284c722; border: 1px solid var(--accent-blue); border-radius: 6px;
+      padding: 10px; margin-bottom: 12px; font-size: 0.85rem; display: none;
+    }
+
+    /* Filas de Toggle */
+    .toggle-group-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 8px;
+      border: 1px solid var(--border-color); gap: 10px;
+    }
+    .toggle-info { flex: 1; }
+    .toggle-label { display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
+    .ind-input-sm { width: 100%; padding: 6px; font-size: 0.85rem; background: #1e293b; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
+
+    .btn-toggle {
+      padding: 8px 16px; border-radius: 6px; font-weight: bold; border: none;
+      cursor: pointer; min-width: 100px; font-size: 0.85rem; transition: 0.2s;
+    }
+    .active-cumple { background: var(--success-green); color: white; }
+    .active-nocumple { background: var(--danger-red); color: white; }
+
+    /* Botones de Acción */
+    .btn-primary {
+      width: 100%; padding: 14px; background: var(--accent-blue); color: white;
+      border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer;
+    }
+    .btn-secondary {
+      padding: 8px 12px; background: #334155; color: white; border: none;
+      border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    }
+
+    /* Tabla Historial */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    th { background: #0f172a; color: var(--accent-blue); }
+
+    /* Scanner Modal */
+    #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+    #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
+  </style>
 </head>
 <body>
 
-  <!-- MODAL DE INICIO DE SESIÓN OBLIGATORIO (SOLO INSPECTORES) -->
+  <!-- Modal Login -->
   <div id="login-modal" class="modal-overlay">
-    <div class="modal-box card-industrial">
-      <div class="modal-header-ind">
-        <span class="ind-badge">SISTEMA CONTROL DE PLANTA</span>
-        <h2>Identificación de Inspector</h2>
-        <p class="login-subtext">Selecciona tu usuario para iniciar la jornada de inspecciones.</p>
+    <div class="modal-card">
+      <h2>Módulo de Calidad</h2>
+      <div class="form-group">
+        <label>Seleccionar Inspector:</label>
+        <select id="login-inspector">
+          <option value="">-- Seleccionar --</option>
+          <option value="Xavier">Xavier</option>
+          <option value="Estrella">Estrella</option>
+          <option value="Gonzalo">Gonzalo</option>
+        </select>
       </div>
-      
-      <label class="ind-label">Inspector de Calidad:</label>
-      <select id="login-inspector" class="ind-input">
-        <option value="">-- Seleccionar Inspector --</option>
-        <option value="Estrella">Estrella</option>
-        <option value="Micaela">Micaela</option>
-        <option value="Manuel">Manuel</option>
-      </select>
-
-      <label class="ind-label">PIN / Clave de Acceso:</label>
-      <input type="password" id="login-pin" class="ind-input" placeholder="****" maxlength="4" inputmode="numeric">
-
-      <button id="btn-login" class="btn-ind btn-primary-ind btn-block">INICIAR SESIÓN</button>
-      <p id="login-error" class="error-text-ind" style="display:none;">⚠️ PIN incorrecto o inspector no seleccionado.</p>
+      <div class="form-group">
+        <label>PIN de Acceso:</label>
+        <input type="password" id="login-pin" class="ind-input" placeholder="****" maxlength="4">
+      </div>
+      <p id="login-error" style="color: #ef4444; font-size: 0.8rem; display: none; margin-bottom: 10px;"></p>
+      <button id="btn-login" class="btn-primary">INICIAR SESIÓN</button>
     </div>
   </div>
 
-  <!-- CONTENIDO PRINCIPAL (BLOQUEADO HASTA INICIAR SESIÓN) -->
+  <!-- Contenido Principal -->
   <div id="app-content" style="display: none;">
-
-    <header class="ind-header">
-      <div class="ind-brand">
-        <div class="status-dot online"></div>
-        <div>
-          <h1>CONTROL DE CALIDAD</h1>
-          <span class="ind-sub-brand">INSPECCIONES EN PROCESO</span>
-        </div>
+    <header>
+      <div>
+        <h1 style="font-size: 1.1rem;">Control de Calidad</h1>
+        <span id="turno-header-badge" class="badge-turno">Turno --</span>
       </div>
-
-      <nav class="ind-nav">
-        <button class="nav-tab active" data-target="view-formulario">📋 Nueva Inspección</button>
-        <button class="nav-tab" data-target="view-historial">📜 Mi Historial</button>
-      </nav>
-
-      <div class="ind-user-badge">
-        <div class="user-meta">
-          <span id="user-display" class="user-name">---</span>
-          <span id="turno-header-badge" class="turno-badge">--:--</span>
-        </div>
-        <button id="btn-logout" class="btn-ind btn-ghost-ind" title="Cerrar Sesión">🚪 Salir</button>
+      <div class="user-info">
+        <span id="user-display">Inspector</span>
+        <button id="btn-logout" class="btn-secondary">Salir</button>
       </div>
     </header>
 
-    <main class="container-ind">
+    <nav>
+      <button class="nav-tab active" data-target="view-formulario">Nueva Inspección</button>
+      <button class="nav-tab" data-target="view-historial">Mi Historial</button>
+    </nav>
 
-      <!-- VISTA 1: FORMULARIO PRINCIPAL -->
-      <section id="view-formulario" class="app-view active">
+    <div class="container">
+      <!-- VISTA FORMULARIO -->
+      <div id="view-formulario" class="app-view active">
         
-        <!-- APARTADO 1: CABECERA -->
-        <div class="card-industrial">
-          <div class="card-header-ind flex-between">
-            <h3>1. Inspecciones en proceso</h3>
-            <button type="button" id="btn-qr" class="btn-ind btn-secondary-ind">📷 Escanear QR Máquina</button>
-          </div>
+        <!-- Sección 1: Datos de Proceso -->
+        <div class="section-card">
+          <div class="section-title">1. Datos de Proceso e Inspección</div>
           
-          <div class="grid-ind-4">
-            <div>
-              <label class="ind-label">Máquina:</label>
-              <select id="select-maquina" class="ind-input">
-                <option value="">Cargando máquinas...</option>
-              </select>
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="margin: 0;">Máquina:</label>
+              <button type="button" id="btn-qr" class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;">📷 Escanear QR</button>
             </div>
-            <div>
-              <label class="ind-label">Producto:</label>
-              <select id="select-producto" class="ind-input">
-                <option value="">Cargando productos...</option>
-              </select>
+            <!-- Búsqueda Integrada con datalist -->
+            <input type="text" id="select-maquina" list="lista-maquinas" class="ind-input" placeholder="🔍 Toca o escribe para buscar máquina..." autocomplete="off">
+            <datalist id="lista-maquinas"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label>Producto:</label>
+            <!-- Búsqueda Integrada con datalist -->
+            <input type="text" id="select-producto" list="lista-productos" class="ind-input" placeholder="🔍 Toca o escribe para buscar producto..." autocomplete="off">
+            <datalist id="lista-productos"></datalist>
+          </div>
+
+          <!-- Banner Especificaciones -->
+          <div id="specs-banner" class="specs-banner">
+            <strong>Especificaciones del Producto:</strong><br>
+            Color: <span id="spec-color">-</span> | Peso: <span id="spec-peso">-</span> | Ciclo: <span id="spec-ciclo">-</span> | Hilo/Int: <span id="spec-diametros">-</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Turno:</label>
+              <input type="text" id="input-turno" class="ind-input" readonly>
             </div>
-            <div>
-              <label class="ind-label">Turno (Automático):</label>
-              <input type="text" id="input-turno" class="ind-input ind-readonly" readonly>
-            </div>
-            <div>
-              <label class="ind-label">Cavidad / Molde N°:</label>
+            <div class="form-group">
+              <label>Cavidad / Molde N°:</label>
               <input type="number" id="input-cavidad" class="ind-input" value="1" min="1">
             </div>
-            <div>
-              <label class="ind-label">Lote Materia Prima (MP):</label>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Lote Materia Prima (MP):</label>
               <input type="text" id="input-lote-mp" class="ind-input" placeholder="Ej: LMP-2607">
             </div>
-            <div>
-              <label class="ind-label">Lote BXA:</label>
+            <div class="form-group">
+              <label>Lote BXA:</label>
               <input type="text" id="input-lote-bxa" class="ind-input" placeholder="Ej: LBXA-2607">
             </div>
           </div>
-
-          <div id="specs-banner" class="specs-box-ind" style="display:none;">
-            <strong>📋 Especificaciones Estándar del Producto:</strong>
-            <div class="specs-grid" style="margin-top: 6px;">
-              <div><span>Color Estándar:</span> <strong id="spec-color">--</strong></div>
-              <div><span>Peso Estándar:</span> <strong id="spec-peso">--</strong></div>
-              <div><span>Ciclo Estándar:</span> <strong id="spec-ciclo">--</strong></div>
-              <div><span>Ø Hilo / Int:</span> <strong id="spec-diametros">--</strong></div>
-            </div>
-          </div>
         </div>
 
-        <!-- APARTADO 2: MEDICIONES Y CUMPLIMIENTO -->
-        <div class="card-industrial">
-          <div class="card-header-ind">
-            <h3>2. Cumplimiento especificaciones y Mediciones</h3>
-            <p class="subtitle-ind">Ingresa la medición obtenida y ajusta la condición ("Cumple" / "No Cumple").</p>
-          </div>
-
-          <div class="grid-ind-1">
-            
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Color y Apariencia</span>
-                <input type="text" id="med-color" class="ind-input-sm" placeholder="Detalle (Ej: Homogéneo / Tono OK)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
-              <input type="hidden" id="val-color" value="Cumple">
-            </div>
-
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Espesor de Pared</span>
-                <input type="text" id="med-espesor" class="ind-input-sm" placeholder="Valor medido (Ej: 1.25 mm)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button>
-              <input type="hidden" id="val-espesor" value="Cumple">
-            </div>
-
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Ciclo de Soplado/Inyección</span>
-                <input type="text" id="med-ciclo" class="ind-input-sm" placeholder="Tiempo medido (Ej: 12.0 s)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button>
-              <input type="hidden" id="val-ciclo" value="Cumple">
-            </div>
-
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Peso del Producto</span>
-                <input type="text" id="med-peso" class="ind-input-sm" placeholder="Peso pesado (Ej: 50.2 g)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-peso">Cumple</button>
-              <input type="hidden" id="val-peso" value="Cumple">
-            </div>
-
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Calce y Ajuste de Tapa</span>
-                <input type="text" id="med-calce" class="ind-input-sm" placeholder="Resultado (Ej: Ajuste correcto)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-calce">Cumple</button>
-              <input type="hidden" id="val-calce" value="Cumple">
-            </div>
-
-            <div class="toggle-group-row">
-              <div class="toggle-info">
-                <span class="toggle-label">Prueba de Hermeticidad / Filtración</span>
-                <input type="text" id="med-filtracion" class="ind-input-sm" placeholder="Prueba de fuga (Ej: Sin filtración)">
-              </div>
-              <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
-              <input type="hidden" id="val-filtracion" value="Cumple">
-            </div>
-
-          </div>
-        </div>
-
-        <!-- APARTADO 3: ACCIÓN ÚNICA -->
-        <div class="card-industrial">
-          <h3>3. Observaciones Adicionales</h3>
-          <textarea id="input-observaciones" class="ind-input ind-textarea" rows="3" placeholder="Notas sobre anomalías, variaciones térmicas o motivos de no cumplimiento..."></textarea>
+        <!-- Sección 2: Especificaciones y Mediciones -->
+        <div class="section-card">
+          <div class="section-title">2. Cumplimiento de Especificaciones y Mediciones</div>
           
-          <div class="action-bar-ind">
-            <button id="btn-guardar-registro" class="btn-ind btn-primary-ind btn-large btn-block" type="button">
-              💾 GUARDAR REGISTRO
-            </button>
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Color y Apariencia</span>
+              <input type="text" id="med-color" class="ind-input-sm" placeholder="Detalle (Ej: Homogéneo / Tono OK)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
+            <input type="hidden" id="val-color" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Espesor de Pared</span>
+              <input type="text" id="med-espesor" class="ind-input-sm" placeholder="Valor medido (Ej: 1.25 mm)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button>
+            <input type="hidden" id="val-espesor" value="Cumple">
+          </div>
+
+          <!-- Etiqueta Actualizada -->
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Ciclo de Soplado/Inyección</span>
+              <input type="text" id="med-ciclo" class="ind-input-sm" placeholder="Tiempo medido (Ej: 12.0 s)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button>
+            <input type="hidden" id="val-ciclo" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Peso del Producto</span>
+              <input type="text" id="med-peso" class="ind-input-sm" placeholder="Peso medido (Ej: 45.2 g)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-peso">Cumple</button>
+            <input type="hidden" id="val-peso" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Calce y Ajuste de Tapa</span>
+              <input type="text" id="med-calce" class="ind-input-sm" placeholder="Detalle (Ej: Ajuste correcto)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-calce">Cumple</button>
+            <input type="hidden" id="val-calce" value="Cumple">
+          </div>
+
+          <div class="toggle-group-row">
+            <div class="toggle-info">
+              <span class="toggle-label">Hermeticidad / Filtración</span>
+              <input type="text" id="med-filtracion" class="ind-input-sm" placeholder="Detalle (Ej: Sin fuga a 5 PSI)">
+            </div>
+            <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
+            <input type="hidden" id="val-filtracion" value="Cumple">
           </div>
         </div>
-      </section>
 
-      <!-- VISTA 2: HISTORIAL DEL INSPECTOR -->
-      <section id="view-historial" class="app-view">
-        <div class="card-industrial">
-          <div class="card-header-ind flex-between">
-            <h3>Mis Registros Guardados</h3>
-            <button id="btn-refresh-historial" class="btn-ind btn-secondary-ind">🔄 Actualizar Lista</button>
+        <!-- Sección 3: Observaciones -->
+        <div class="section-card">
+          <div class="section-title">3. Observaciones Adicionales</div>
+          <textarea id="input-observaciones" rows="3" placeholder="Ingresa comentarios sobre novedades, ajustes o desviaciones..."></textarea>
+        </div>
+
+        <button type="button" id="btn-imprimir-pdf" class="btn-primary">📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO</button>
+      </div>
+
+      <!-- VISTA HISTORIAL -->
+      <div id="view-historial" class="app-view">
+        <div class="section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div class="section-title" style="margin: 0; border: none;">Mis Inspecciones Registradas</div>
+            <button id="btn-refresh-historial" class="btn-secondary">🔄 Actualizar</button>
           </div>
-
-          <div class="table-responsive-ind">
-            <table class="ind-table">
+          <div style="overflow-x: auto;">
+            <table>
               <thead>
                 <tr>
-                  <th>ID INSP</th>
-                  <th>CORRELATIVO</th>
-                  <th>FECHA / HORA</th>
-                  <th>TURNO</th>
-                  <th>MÁQUINA</th>
-                  <th>PRODUCTO</th>
-                  <th>OBSERVACIONES / MEDICIONES</th>
+                  <th>ID</th>
+                  <th>Corr.</th>
+                  <th>Fecha/Hora</th>
+                  <th>Turno</th>
+                  <th>Máquina</th>
+                  <th>Producto</th>
+                  <th>Observaciones</th>
                 </tr>
               </thead>
               <tbody id="tabla-historial-body">
-                <tr>
-                  <td colspan="7" style="text-align:center; padding: 20px;">Cargando tu historial...</td>
-                </tr>
+                <tr><td colspan="7" style="text-align:center; padding: 15px;">Cargando historial...</td></tr>
               </tbody>
             </table>
           </div>
         </div>
-      </section>
-
-    </main>
+      </div>
+    </div>
   </div>
 
-  <!-- MODAL CÁMARA QR -->
-  <div id="qr-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-box card-industrial">
-      <h2>Escanear Código QR de Máquina</h2>
-      <div id="reader" style="width: 100%; min-height: 220px; background:#000; border-radius:8px; margin-top:10px;"></div>
-      <button id="btn-close-qr" class="btn-ind btn-secondary-ind btn-block" style="margin-top: 15px;">Cancelar</button>
-    </div>
+  <!-- Modal QR -->
+  <div id="qr-modal">
+    <div id="reader"></div>
+    <button id="btn-close-qr" class="btn-secondary" style="margin-top: 15px;">Cerrar Cámara</button>
   </div>
 
   <script src="app.js"></script>
