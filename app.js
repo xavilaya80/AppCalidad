@@ -70,7 +70,7 @@ function setupNavigation() {
   });
 }
 
-// BUSCADORES DESPLEGABLES COMPATIBLES CON TABLET
+// BUSCADORES DESPLEGABLES TOUCH PARA TABLETS
 function setupCustomComboboxes() {
   const inputMaq = document.getElementById('input-search-maquina');
   const dropMaq = document.getElementById('dropdown-maquina');
@@ -164,7 +164,7 @@ function actualizarFichaProducto(prodId) {
   }
 }
 
-// CREACIÓN DE PLANTILLA HTML LIMPIA PARA EL PDF (SIN FONDO OSCURO O TRANSPARENTE)
+// PLANTILLA ESTRUCTURADA CON ESTILOS INLINE BLINDADOS
 function crearElementoPDF() {
   const inspector = sessionStorage.getItem('usuario_calidad') || '---';
   const maquinaText = document.getElementById('input-search-maquina').value || '-';
@@ -192,15 +192,11 @@ function crearElementoPDF() {
   ];
 
   const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.width = '750px';
-  container.style.padding = '25px';
+  container.style.width = '700px';
+  container.style.padding = '20px';
   container.style.backgroundColor = '#ffffff';
   container.style.color = '#0f172a';
   container.style.fontFamily = 'Arial, sans-serif';
-  container.style.zIndex = '999999';
   container.style.boxSizing = 'border-box';
 
   container.innerHTML = `
@@ -270,50 +266,60 @@ function crearElementoPDF() {
   return container;
 }
 
-async function obtenerPDFBase64() {
+// PROCESO UNIFICADO DE CAPTURA DE PDF (RESUELVE EL FALLO DE PANTALLA EN BLANCO)
+async function procesarPDFYGuardar() {
+  const scrollYPrevio = window.scrollY;
   const element = crearElementoPDF();
-  document.body.appendChild(element);
-  window.scrollTo(0, 0);
-
-  await new Promise(r => setTimeout(r, 350));
-
-  const opt = {
-    margin:       0.2,
-    filename:     'reporte.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
   
-  const base64 = await html2pdf().set(opt).from(element).outputPdf('datauristring');
-  if (document.body.contains(element)) {
-    document.body.removeChild(element);
-  }
-  return base64;
-}
+  // Contenedor aislado en el origen absoluto del documento
+  const printWrapper = document.createElement('div');
+  printWrapper.style.position = 'absolute';
+  printWrapper.style.top = '0';
+  printWrapper.style.left = '0';
+  printWrapper.style.width = '100%';
+  printWrapper.style.backgroundColor = '#ffffff';
+  printWrapper.style.zIndex = '9999999';
+  printWrapper.appendChild(element);
+  document.body.appendChild(printWrapper);
 
-async function generarReportePDF() {
-  const element = crearElementoPDF();
-  document.body.appendChild(element);
+  // Mover temporalmente al origen
   window.scrollTo(0, 0);
+  await new Promise(r => setTimeout(r, 450));
 
-  await new Promise(r => setTimeout(r, 350));
-
-  const maquinaText = document.getElementById('select-maquina').value || 'MAQ';
-  const fecha = new Date().toISOString().slice(0, 10);
+  const maquinaVal = document.getElementById('select-maquina').value || 'MAQ';
+  const fechaHoy = new Date().toISOString().slice(0, 10);
+  const nombreArchivo = `Inspeccion_${maquinaVal.replace(/[^a-zA-Z0-9]/g, '_')}_${fechaHoy}.pdf`;
 
   const opt = {
     margin:       0.2,
-    filename:     `Inspeccion_${maquinaText.replace(/[^a-zA-Z0-9]/g, '_')}_${fecha}.pdf`,
+    filename:     nombreArchivo,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+    html2canvas:  { 
+      scale: 2, 
+      useCORS: true, 
+      logging: false,
+      scrollY: 0,
+      scrollX: 0
+    },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
 
-  await html2pdf().set(opt).from(element).save();
-  if (document.body.contains(element)) {
-    document.body.removeChild(element);
+  let pdfBase64 = null;
+
+  try {
+    const worker = html2pdf().set(opt).from(element);
+    pdfBase64 = await worker.outputPdf('datauristring');
+    await worker.save();
+  } catch (err) {
+    console.error("Error procesando PDF:", err);
+  } finally {
+    if (document.body.contains(printWrapper)) {
+      document.body.removeChild(printWrapper);
+    }
+    window.scrollTo(0, scrollYPrevio);
   }
+
+  return pdfBase64;
 }
 
 function setupEventListeners() {
@@ -344,7 +350,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // CERRAR TURNO + GENERAR CONSOLIDADO + CIERRE DE SESIÓN
+  // CERRAR TURNO + GENERAR CONSOLIDADO + CIERRE AUTOMÁTICO DE SESIÓN
   document.getElementById('btn-cerrar-turno').addEventListener('click', async () => {
     const turno = obtenerTurnoAuto();
     const inspector = sessionStorage.getItem('usuario_calidad') || 'Inspector';
@@ -374,7 +380,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GUARDAR INSPECCIÓN + DESCARGAR PDF + CERRAR SESIÓN DE INMEDIATO
+  // GUARDAR INSPECCIÓN + PDF + CIERRE AUTOMÁTICO DE SESIÓN
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
@@ -400,7 +406,7 @@ function setupEventListeners() {
       inputProd.classList.remove('input-error');
     }
 
-    // 2. VALIDACIÓN ESTRICTA DE MEDICIONES (NADA PUEDE QUEDAR VACÍO)
+    // 2. VALIDACIÓN ESTRICTA DE MEDICIONES
     const medicionesDef = [
       { id: 'med-color', nombre: 'Color y Apariencia' },
       { id: 'med-espesor', nombre: 'Espesor de Pared' },
@@ -437,17 +443,15 @@ function setupEventListeners() {
     btnGuardar.disabled = true;
     btnGuardar.innerText = "Procesando PDF y Guardando...";
 
-    // Generar PDF Base64 y PDF local
-    const pdfBase64 = await obtenerPDFBase64();
+    // 3. Captura limpia de PDF y envío
+    const pdfBase64 = await procesarPDFYGuardar();
     const exito = await enviarAGoogleSheets(pdfBase64);
 
     if (exito) {
-      await generarReportePDF();
       alert("¡Registro guardado exitosamente y PDF generado!\n\nTu sesión se cerrará a continuación para permitir el ingreso del siguiente inspector.");
-      
       resetFormulario();
       sessionStorage.removeItem('usuario_calidad');
-      checkSession(); // Redirige automáticamente al inicio de sesión
+      checkSession();
     } else {
       btnGuardar.disabled = false;
       btnGuardar.innerText = "📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO";
