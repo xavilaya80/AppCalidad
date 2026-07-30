@@ -6,6 +6,7 @@ if ('serviceWorker' in navigator) {
 // ⚠️ PEGA AQUÍ TU URL DESPLEGADA DE GOOGLE APPS SCRIPT
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
+// ESTADO LOCAL
 let productosCache = [];
 let maquinasCache = [];
 let historialCache = [];
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
 });
 
+// 1. DETECCIÓN AUTOMÁTICA DE TURNO (08:00 a 20:00 = Mañana, 20:00 a 08:00 = Noche)
 function obtenerTurnoAuto() {
   const hora = new Date().getHours();
   return (hora >= 8 && hora < 20) ? "Turno Mañana" : "Turno Noche";
@@ -33,6 +35,7 @@ function actualizarTurnoAuto() {
   if (turnoHeader) turnoHeader.innerText = turnoActual;
 }
 
+// 2. VERIFICACIÓN Y BLOQUEO DE SESIÓN (SOLO INSPECTORES)
 function checkSession() {
   const usuario = sessionStorage.getItem('usuario_calidad');
   const modal = document.getElementById('login-modal');
@@ -55,6 +58,7 @@ function checkSession() {
   }
 }
 
+// 3. NAVEGACIÓN ENTRE PESTAÑAS
 function setupNavigation() {
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -72,7 +76,9 @@ function setupNavigation() {
   });
 }
 
+// 4. CONFIGURACIÓN DE EVENTOS Y BOTONES
 function setupEventListeners() {
+  // Login de Inspectores
   document.getElementById('btn-login').addEventListener('click', () => {
     const userSelect = document.getElementById('login-inspector').value;
     const pin = document.getElementById('login-pin').value;
@@ -93,11 +99,13 @@ function setupEventListeners() {
     }
   });
 
+  // Logout
   document.getElementById('btn-logout').addEventListener('click', () => {
     sessionStorage.removeItem('usuario_calidad');
     checkSession();
   });
 
+  // Ficha técnica dinámica
   document.getElementById('select-producto').addEventListener('change', (e) => {
     const selected = productosCache.find(p => p.id === e.target.value);
     const banner = document.getElementById('specs-banner');
@@ -113,10 +121,11 @@ function setupEventListeners() {
     }
   });
 
+  // QR Scanner
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
 
-  // ACCIÓN PRINCIPAL: GUARDAR DATOS + RESPALDAR PDF EN DRIVE
+  // ACCIÓN PRINCIPAL: GUARDAR EN GOOGLE SHEETS + RESPALDAR PDF EN DRIVE + DESCARGAR/IMPRIMIR
   document.getElementById('btn-imprimir-pdf').addEventListener('click', async () => {
     const maquina = document.getElementById('select-maquina').value;
     const producto = document.getElementById('select-producto').value;
@@ -130,27 +139,33 @@ function setupEventListeners() {
     btnPDF.disabled = true;
     btnPDF.innerText = "Procesando PDF y Guardando...";
 
-    // 1. Generar representación Base64 del PDF desde la plantilla limpia
+    // 1. Generar Base64 del PDF desde la plantilla limpia
     const pdfBase64 = await obtenerPDFBase64();
 
-    // 2. Enviar a Google Sheets y Google Drive
+    // 2. Enviar datos a Google Sheets y Drive
     const exito = await enviarAGoogleSheets(pdfBase64);
 
     if (exito) {
-      // 3. Descargar copia local limpia
+      // 3. Descargar copia local limpia en la tablet
       generarReportePDF();
-      alert("¡Registro guardado en Google Sheets y PDF respaldado en Google Drive!");
+      
+      // 4. Pausa de 2.5 segundos para que Google Sheets termine de escribir la fila
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      alert("¡Registro guardado en Google Sheets, PDF respaldado en Drive e Historial actualizado!");
       resetFormulario();
-      loadCatalogData();
+      await loadCatalogData(); // Recarga catálogo e historial actualizado desde Sheets
     }
 
     btnPDF.disabled = false;
     btnPDF.innerText = "📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO";
   });
 
+  // Refrescar Historial manualmente
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
 }
 
+// 5. BOTONES TOGGLE CUMPLE / NO CUMPLE
 function setupToggles() {
   document.querySelectorAll('.btn-toggle').forEach(btn => {
     btn.onclick = function(e) {
@@ -172,7 +187,7 @@ function setupToggles() {
   });
 }
 
-// CONSTRUCTOR DE PLANTILLA IMPRESA PARA PDF COMPLETO EN 1 PÁGINA
+// 6. PLANTILLA Y GENERACIÓN DE PDF LIMPIO EN 1 PÁGINA
 function crearElementoPDF() {
   const inspector = sessionStorage.getItem('usuario_calidad') || '---';
   const maquinaSelect = document.getElementById('select-maquina');
@@ -311,6 +326,7 @@ function generarReportePDF() {
   });
 }
 
+// 7. CARGA DE CATÁLOGOS E HISTORIAL DESDE GOOGLE SHEETS
 async function loadCatalogData() {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -332,11 +348,15 @@ async function loadCatalogData() {
       selectProd.innerHTML += `<option value="${p.id}">${p.nombre} (${p.id})</option>`;
     });
 
+    // Actualizar la tabla de historial si está activa
+    renderHistorialInspector();
+
   } catch (err) {
     console.error("Error al obtener datos desde Google Sheets:", err);
   }
 }
 
+// 8. RENDERIZAR HISTORIAL FILTRADO POR INSPECTOR LOGUEADO
 function renderHistorialInspector() {
   const usuarioActual = sessionStorage.getItem('usuario_calidad');
   const tbody = document.getElementById('tabla-historial-body');
@@ -363,6 +383,7 @@ function renderHistorialInspector() {
   `).join('');
 }
 
+// 9. ENVÍO DE DATOS A GOOGLE SHEETS Y DRIVE
 async function enviarAGoogleSheets(pdfBase64Data) {
   const maquina = document.getElementById('select-maquina').value;
   const producto = document.getElementById('select-producto').value;
@@ -418,6 +439,7 @@ async function enviarAGoogleSheets(pdfBase64Data) {
   }
 }
 
+// 10. LIMPIAR FORMULARIO
 function resetFormulario() {
   document.querySelectorAll('input:not([type="hidden"]):not(#input-cavidad):not(#input-turno), textarea').forEach(el => el.value = '');
   document.getElementById('select-maquina').value = '';
@@ -434,6 +456,7 @@ function resetFormulario() {
   actualizarTurnoAuto();
 }
 
+// 11. ESCÁNER QR NATIVO
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex';
   html5QrCode = new Html5Qrcode("reader");
