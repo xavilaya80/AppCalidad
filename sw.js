@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calidad-proceso-v8';
+const CACHE_NAME = 'calidad-proceso-v9';
 const ASSETS = [
   './',
   'index.html',
