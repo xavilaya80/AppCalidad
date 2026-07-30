@@ -39,8 +39,9 @@
     header {
       background: var(--card-bg); padding: 12px 16px; display: flex;
       justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap; gap: 8px;
     }
-    .user-info { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+    .user-info { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; flex-wrap: wrap; }
     .badge-turno { background: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
 
     /* Navegación */
@@ -138,7 +139,7 @@
 </head>
 <body>
 
-  <!-- Modal Login -->
+  <!-- Modal Login (Inspectores Oficiales) -->
   <div id="login-modal" class="modal-overlay">
     <div class="modal-card">
       <h2>Módulo de Calidad</h2>
@@ -169,6 +170,7 @@
       </div>
       <div class="user-info">
         <span id="user-display">Inspector</span>
+        <button id="btn-generar-pdf-ahora" class="btn-secondary" style="background: #0284c7;">📄 Generar PDF Ahora</button>
         <button id="btn-cerrar-turno" class="btn-danger">🔴 Cerrar Turno</button>
         <button id="btn-logout" class="btn-secondary">Salir</button>
       </div>
@@ -306,7 +308,7 @@
           <textarea id="input-observaciones" rows="3" placeholder="Comentarios o desviaciones..."></textarea>
         </div>
 
-        <button type="button" id="btn-guardar-registro" class="btn-primary">💾 GUARDAR Y CERRAR SESIÓN</button>
+        <button type="button" id="btn-guardar-registro" class="btn-primary">💾 GUARDAR REGISTRO DE INSPECCIÓN</button>
       </div>
 
       <!-- VISTA HISTORIAL -->
