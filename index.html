@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Control de Calidad - Planta Moldeo</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
@@ -27,7 +27,7 @@
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(15, 23, 42, 0.95); display: flex; justify-content: center;
-      align-items: center; z-index: 1000;
+      align-items: center; z-index: 2000;
     }
     .modal-card {
       background: var(--card-bg); padding: 25px; border-radius: 12px;
@@ -35,7 +35,7 @@
     }
     .modal-card h2 { margin-bottom: 15px; color: var(--accent-blue); font-size: 1.3rem; }
 
-    /* Layout Principal */
+    /* Layout Header */
     header {
       background: var(--card-bg); padding: 12px 16px; display: flex;
       justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
@@ -58,34 +58,40 @@
     .section-card {
       background: var(--card-bg); border-radius: 10px; padding: 15px;
       margin-bottom: 15px; border: 1px solid var(--border-color);
+      overflow: visible !important; /* Permite desplegar listas sin recorte */
+      position: relative;
     }
     .section-title {
       font-size: 1rem; color: var(--accent-blue); margin-bottom: 12px;
       border-bottom: 1px solid var(--border-color); padding-bottom: 6px;
     }
 
-    .form-group { margin-bottom: 12px; position: relative; }
+    .form-group { margin-bottom: 14px; position: relative; overflow: visible; }
     .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
     .req-star { color: #ef4444; font-weight: bold; }
 
     .ind-input, select, textarea {
-      width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
+      width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);
       background: #0f172a; color: var(--text-light); font-size: 0.95rem; outline: none;
     }
     .ind-input:focus, select:focus, textarea:focus { border-color: var(--accent-blue); }
-    .input-error { border-color: #ef4444 !important; background-color: #450a0a !important; }
+    
+    /* Resaltado de error en campos faltantes */
+    .input-error { border: 2px solid #ef4444 !important; background-color: #450a0a !important; }
 
-    /* BUSCADOR CUSTOM DESPLEGABLE CON SCROLL */
+    /* BUSCADOR TOUCH OPTIMIZADO PARA TABLETS */
     .combobox-dropdown {
       position: absolute; top: 100%; left: 0; right: 0; background: #0f172a;
-      border: 1px solid var(--accent-blue); border-radius: 0 0 6px 6px;
-      max-height: 180px; overflow-y: auto; z-index: 500; display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border: 2px solid var(--accent-blue); border-radius: 0 0 8px 8px;
+      max-height: 220px; overflow-y: auto; z-index: 1000; display: none;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.7);
+      -webkit-overflow-scrolling: touch;
     }
     .combobox-item {
-      padding: 10px; cursor: pointer; border-bottom: 1px solid #1e293b; font-size: 0.9rem;
+      padding: 14px; cursor: pointer; border-bottom: 1px solid #1e293b;
+      font-size: 0.95rem; min-height: 48px; display: flex; align-items: center;
     }
-    .combobox-item:hover, .combobox-item.active { background: var(--accent-blue); color: white; }
+    .combobox-item:active, .combobox-item:hover { background: var(--accent-blue); color: white; }
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -96,15 +102,15 @@
 
     .toggle-group-row {
       display: flex; justify-content: space-between; align-items: center;
-      background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 8px;
+      background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 10px;
       border: 1px solid var(--border-color); gap: 10px;
     }
     .toggle-info { flex: 1; }
     .toggle-label { display: block; font-weight: bold; font-size: 0.88rem; margin-bottom: 4px; }
-    .ind-input-sm { width: 100%; padding: 8px; font-size: 0.85rem; background: #1e293b; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
+    .ind-input-sm { width: 100%; padding: 10px; font-size: 0.88rem; background: #1e293b; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
 
     .btn-toggle {
-      padding: 8px 16px; border-radius: 6px; font-weight: bold; border: none;
+      padding: 10px 16px; border-radius: 6px; font-weight: bold; border: none;
       cursor: pointer; min-width: 95px; font-size: 0.85rem; transition: 0.2s;
     }
     .active-cumple { background: var(--success-green); color: white; }
@@ -127,7 +133,7 @@
     th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
     th { background: #0f172a; color: var(--accent-blue); }
 
-    #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+    #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; flex-direction: column; justify-content: center; align-items: center; }
     #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
   </style>
 </head>
@@ -188,7 +194,7 @@
               <label style="margin: 0;">Máquina: <span class="req-star">*</span></label>
               <button type="button" id="btn-qr" class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">📷 Escanear QR</button>
             </div>
-            <input type="text" id="input-search-maquina" class="ind-input" placeholder="Toca para ver lista o escribe para buscar..." autocomplete="off">
+            <input type="text" id="input-search-maquina" class="ind-input" placeholder="Toca aquí para ver lista o buscar máquina..." autocomplete="off">
             <input type="hidden" id="select-maquina">
             <div id="dropdown-maquina" class="combobox-dropdown"></div>
           </div>
@@ -196,7 +202,7 @@
           <!-- Buscador Producto -->
           <div class="form-group">
             <label>Producto: <span class="req-star">*</span></label>
-            <input type="text" id="input-search-producto" class="ind-input" placeholder="Toca para ver lista o escribe para buscar..." autocomplete="off">
+            <input type="text" id="input-search-producto" class="ind-input" placeholder="Toca aquí para ver lista o buscar producto..." autocomplete="off">
             <input type="hidden" id="select-producto">
             <div id="dropdown-producto" class="combobox-dropdown"></div>
           </div>
@@ -243,7 +249,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Color y Apariencia <span class="req-star">*</span></span>
-              <input type="text" id="med-color" class="ind-input-sm med-field" placeholder="Ingresa valor/detalle obtenido">
+              <input type="text" id="med-color" class="ind-input-sm med-field" placeholder="Ingresa detalle/tono obtenido">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
             <input type="hidden" id="val-color" value="Cumple">
@@ -288,7 +294,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Hermeticidad / Filtración <span class="req-star">*</span></span>
-              <input type="text" id="med-filtracion" class="ind-input-sm med-field" placeholder="Ingresa prueba de leak (Ej: OK a 5 PSI)">
+              <input type="text" id="med-filtracion" class="ind-input-sm med-field" placeholder="Ingresa prueba leak (Ej: OK a 5 PSI)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
             <input type="hidden" id="val-filtracion" value="Cumple">
