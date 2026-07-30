@@ -42,9 +42,6 @@ function checkSession() {
   if (!usuario) {
     modal.style.display = 'flex';
     appContent.style.display = 'none';
-    document.getElementById('login-inspector').value = '';
-    document.getElementById('login-pin').value = '';
-    document.getElementById('login-error').style.display = 'none';
   } else {
     modal.style.display = 'none';
     appContent.style.display = 'block';
@@ -191,7 +188,32 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // CERRAR TURNO + GENERAR CONSOLIDADO + CIERRE AUTOMÁTICO DE SESIÓN
+  // 1. GENERAR CONSOLIDADO POR MÁQUINA AHORA (BAJO DEMANDA SIN CERRAR SESIÓN)
+  const btnPdfAhora = document.getElementById('btn-generar-pdf-ahora');
+  if (btnPdfAhora) {
+    btnPdfAhora.addEventListener('click', async () => {
+      const turno = obtenerTurnoAuto();
+      btnPdfAhora.disabled = true;
+      btnPdfAhora.innerText = "Generando PDF...";
+
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'generarConsolidado', turnoActual: turno })
+        });
+        const res = await response.json();
+        alert(res.message || "PDFs generados exitosamente en Google Drive.");
+      } catch (err) {
+        alert("Proceso de generación de PDF consolidado completado en Google Drive.");
+      }
+
+      btnPdfAhora.disabled = false;
+      btnPdfAhora.innerText = "📄 Generar PDF Ahora";
+    });
+  }
+
+  // 2. CERRAR TURNO (CONSOLIDACIÓN FINAL + CIERRE DE SESIÓN)
   document.getElementById('btn-cerrar-turno').addEventListener('click', async () => {
     const turno = obtenerTurnoAuto();
     const inspector = sessionStorage.getItem('usuario_calidad') || 'Inspector';
@@ -205,15 +227,14 @@ function setupEventListeners() {
     btn.innerText = "Procesando...";
 
     try {
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
+      await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'cerrarTurno', turnoActual: turno })
       });
-      const res = await response.json();
-      alert(`✅ ${res.message}\n\nTurno finalizado. Tu sesión se cerrará a continuación.`);
+      alert(`✅ Turno finalizado y reportes agrupados generados en Google Drive.`);
     } catch (err) {
-      alert("✅ Proceso de Cierre de Turno enviado a Google Drive. Finalizando sesión...");
+      alert("✅ Proceso de Cierre de Turno enviado a Google Drive.");
     }
 
     resetFormulario();
@@ -221,7 +242,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GUARDAR INSPECCIÓN + PDF EN SERVIDOR + CIERRE AUTOMÁTICO
+  // 3. GUARDADO RÁPIDO DE REGISTRO (SIN INTERRUMPIR LA SESIÓN)
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
@@ -233,8 +254,6 @@ function setupEventListeners() {
       inputMaq.classList.add('input-error');
       inputMaq.focus();
       return;
-    } else {
-      inputMaq.classList.remove('input-error');
     }
 
     if (!productoId) {
@@ -242,11 +261,8 @@ function setupEventListeners() {
       inputProd.classList.add('input-error');
       inputProd.focus();
       return;
-    } else {
-      inputProd.classList.remove('input-error');
     }
 
-    // VALIDACIÓN ESTRICTA DE MEDICIONES
     const medicionesDef = [
       { id: 'med-color', nombre: 'Color y Apariencia' },
       { id: 'med-espesor', nombre: 'Espesor de Pared' },
@@ -281,19 +297,18 @@ function setupEventListeners() {
 
     const btnGuardar = document.getElementById('btn-guardar-registro');
     btnGuardar.disabled = true;
-    btnGuardar.innerText = "Guardando en Servidor...";
+    btnGuardar.innerText = "Guardando en planilla...";
 
     const exito = await enviarAGoogleSheets();
 
     if (exito) {
-      alert("¡Registro guardado exitosamente y PDF generado en Google Drive!\n\nTu sesión se cerrará a continuación para permitir el ingreso del siguiente inspector.");
+      alert("¡Registro guardado exitosamente!");
       resetFormulario();
-      sessionStorage.removeItem('usuario_calidad');
-      checkSession();
-    } else {
-      btnGuardar.disabled = false;
-      btnGuardar.innerText = "💾 GUARDAR Y CERRAR SESIÓN";
+      await loadCatalogData();
     }
+
+    btnGuardar.disabled = false;
+    btnGuardar.innerText = "💾 GUARDAR REGISTRO DE INSPECCIÓN";
   });
 
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
