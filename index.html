@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control de Calidad - Inspecciones en Proceso</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- MODAL DE INICIO DE SESIÓN OBLIGATORIO -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-box card-industrial">
+      <div class="modal-header-ind">
+        <span class="ind-badge">SISTEMA CONTROL DE PLANTA</span>
+        <h2>Identificación de Inspector</h2>
+        <p class="login-subtext">Selecciona tu usuario para iniciar la jornada de inspecciones.</p>
+      </div>
+      
+      <label class="ind-label">Inspector de Calidad:</label>
+      <select id="login-inspector" class="ind-input">
+        <option value="">-- Seleccionar Inspector --</option>
+        <option value="Estrella">Estrella</option>
+        <option value="Micaela">Micaela</option>
+        <option value="Manuel">Manuel</option>
+        <option value="Xavier">Xavier (Admin)</option>
+        <option value="Víctor">Víctor (Admin)</option>
+      </select>
+
+      <label class="ind-label">PIN / Clave de Acceso:</label>
+      <input type="password" id="login-pin" class="ind-input" placeholder="****" maxlength="4" inputmode="numeric">
+
+      <button id="btn-login" class="btn-ind btn-primary-ind btn-block">INICIAR SESIÓN</button>
+      <p id="login-error" class="error-text-ind" style="display:none;">⚠️ PIN incorrecto o usuario no seleccionado.</p>
+    </div>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL (BLOQUEADO HASTA INICIAR SESIÓN) -->
+  <div id="app-content" style="display: none;">
+
+    <!-- ENCABEZADO SUPERIOR -->
+    <header class="ind-header">
+      <div class="ind-brand">
+        <div class="status-dot online"></div>
+        <div>
+          <h1>CONTROL DE CALIDAD</h1>
+          <span class="ind-sub-brand">INSPECCIONES EN PROCESO</span>
+        </div>
+      </div>
+
+      <nav class="ind-nav">
+        <button class="nav-tab active" data-target="view-formulario">📋 Nueva Inspección</button>
+        <button class="nav-tab" data-target="view-historial">📜 Mi Historial</button>
+      </nav>
+
+      <div class="ind-user-badge">
+        <div class="user-meta">
+          <span id="user-display" class="user-name">---</span>
+          <span id="turno-header-badge" class="turno-badge">--:--</span>
+        </div>
+        <button id="btn-logout" class="btn-ind btn-ghost-ind" title="Cerrar Sesión">🚪 Salir</button>
+      </div>
+    </header>
+
+    <main class="container-ind">
+
+      <!-- VISTA 1: FORMULARIO PRINCIPAL -->
+      <section id="view-formulario" class="app-view active">
+        
+        <!-- APARTADO 1: INSPECCIONES EN PROCESO (CABECERA) -->
+        <div class="card-industrial">
+          <div class="card-header-ind flex-between">
+            <h3>1. Inspecciones en proceso</h3>
+            <button type="button" id="btn-qr" class="btn-ind btn-secondary-ind">📷 Escanear QR Máquina</button>
+          </div>
+          
+          <div class="grid-ind-4">
+            <div>
+              <label class="ind-label">Máquina:</label>
+              <select id="select-maquina" class="ind-input">
+                <option value="">Cargando máquinas...</option>
+              </select>
+            </div>
+            <div>
+              <label class="ind-label">Producto:</label>
+              <select id="select-producto" class="ind-input">
+                <option value="">Cargando productos...</option>
+              </select>
+            </div>
+            <div>
+              <label class="ind-label">Turno (Automático / No editable):</label>
+              <input type="text" id="input-turno" class="ind-input ind-readonly" readonly>
+            </div>
+            <div>
+              <label class="ind-label">Cavidad / Molde N°:</label>
+              <input type="number" id="input-cavidad" class="ind-input" value="1" min="1">
+            </div>
+            <div>
+              <label class="ind-label">Lote Materia Prima (MP):</label>
+              <input type="text" id="input-lote-mp" class="ind-input" placeholder="Ej: LMP-2607">
+            </div>
+            <div>
+              <label class="ind-label">Lote BXA:</label>
+              <input type="text" id="input-lote-bxa" class="ind-input" placeholder="Ej: LBXA-2607">
+            </div>
+          </div>
+
+          <!-- BÁNER DE ESPECIFICACIONES AUTOMÁTICAS -->
+          <div id="specs-banner" class="specs-box-ind" style="display:none;">
+            <strong>📋 Especificaciones Estándar del Producto:</strong>
+            <div class="specs-grid" style="margin-top: 6px;">
+              <div><span>Color Estándar:</span> <strong id="spec-color">--</strong></div>
+              <div><span>Peso Estándar:</span> <strong id="spec-peso">--</strong></div>
+              <div><span>Ciclo Estándar:</span> <strong id="spec-ciclo">--</strong></div>
+              <div><span>Ø Hilo / Int:</span> <strong id="spec-diametros">--</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- APARTADO 2: CUMPLIMIENTO Y MEDICIONES -->
+        <div class="card-industrial">
+          <div class="card-header-ind">
+            <h3>2. Cumplimiento especificaciones y Mediciones</h3>
+            <p class="subtitle-ind">Ingresa la medición obtenida y ajusta la condición ("Cumple" / "No Cumple").</p>
+          </div>
+
+          <div class="grid-ind-1">
+            
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Color y Apariencia</span>
+                <input type="text" id="med-color" class="ind-input-sm" placeholder="Detalle (Ej: Homogéneo / Tono OK)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-color">Cumple</button>
+              <input type="hidden" id="val-color" value="Cumple">
+            </div>
+
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Espesor de Pared</span>
+                <input type="text" id="med-espesor" class="ind-input-sm" placeholder="Valor medido (Ej: 1.25 mm)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button>
+              <input type="hidden" id="val-espesor" value="Cumple">
+            </div>
+
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Ciclo de Soplado</span>
+                <input type="text" id="med-ciclo" class="ind-input-sm" placeholder="Tiempo medido (Ej: 12.0 s)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button>
+              <input type="hidden" id="val-ciclo" value="Cumple">
+            </div>
+
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Peso del Producto</span>
+                <input type="text" id="med-peso" class="ind-input-sm" placeholder="Peso pesado (Ej: 50.2 g)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-peso">Cumple</button>
+              <input type="hidden" id="val-peso" value="Cumple">
+            </div>
+
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Calce y Ajuste de Tapa</span>
+                <input type="text" id="med-calce" class="ind-input-sm" placeholder="Resultado (Ej: Ajuste correcto)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-calce">Cumple</button>
+              <input type="hidden" id="val-calce" value="Cumple">
+            </div>
+
+            <div class="toggle-group-row">
+              <div class="toggle-info">
+                <span class="toggle-label">Prueba de Hermeticidad / Filtración</span>
+                <input type="text" id="med-filtracion" class="ind-input-sm" placeholder="Prueba de fuga (Ej: Sin filtración)">
+              </div>
+              <button type="button" class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button>
+              <input type="hidden" id="val-filtracion" value="Cumple">
+            </div>
+
+          </div>
+        </div>
+
+        <!-- APARTADO 3: OBSERVACIONES Y ACCIÓN ÚNICA -->
+        <div class="card-industrial">
+          <h3>3. Observaciones Adicionales</h3>
+          <textarea id="input-observaciones" class="ind-input ind-textarea" rows="3" placeholder="Notas sobre anomalías, variaciones térmicas o motivos de no cumplimiento..."></textarea>
+          
+          <div class="action-bar-ind">
+            <button id="btn-imprimir-pdf" class="btn-ind btn-primary-ind btn-large btn-block" type="button">
+              📄 GENERAR / IMPRIMIR PDF Y GUARDAR REGISTRO
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA 2: HISTORIAL DEL INSPECTOR -->
+      <section id="view-historial" class="app-view">
+        <div class="card-industrial">
+          <div class="card-header-ind flex-between">
+            <h3>Mis Registros Guardados</h3>
+            <button id="btn-refresh-historial" class="btn-ind btn-secondary-ind">🔄 Actualizar Lista</button>
+          </div>
+
+          <div class="table-responsive-ind">
+            <table class="ind-table">
+              <thead>
+                <tr>
+                  <th>ID INSP</th>
+                  <th>CORRELATIVO</th>
+                  <th>FECHA / HORA</th>
+                  <th>TURNO</th>
+                  <th>MÁQUINA</th>
+                  <th>PRODUCTO</th>
+                  <th>OBSERVACIONES / MEDICIONES</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-historial-body">
+                <tr>
+                  <td colspan="7" style="text-align:center; padding: 20px;">Cargando tu historial...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL CÁMARA QR -->
+  <div id="qr-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box card-industrial">
+      <h2>Escanear Código QR de Máquina</h2>
+      <div id="reader" style="width: 100%; min-height: 220px; background:#000; border-radius:8px; margin-top:10px;"></div>
+      <button id="btn-close-qr" class="btn-ind btn-secondary-ind btn-block" style="margin-top: 15px;">Cancelar</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
