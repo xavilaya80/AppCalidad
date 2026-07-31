@@ -2,7 +2,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
 
-// ⚠️ REEMPLAZA ESTA URL POR LA DE TU DESPLIEGUE EN GOOGLE APPS SCRIPT
+// ⚠️ REEMPLAZA CON LA URL DE TU DESPLIEGUE EN GOOGLE APPS SCRIPT
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
 let productosCache = [];
@@ -19,16 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCustomComboboxes();
 });
 
-// CÁLCULO DE HORA Y TURNO CON ZONA HORARIA AMERICA/SANTIAGO
+// OBTENER HORA REAL EN ZONA SANTIAGO, CHILE (INDEPENDIENTE DEL DISPOSITIVO)
 function obtenerHoraSantiago() {
   const now = new Date();
-  const horaStr = new Intl.DateTimeFormat('es-CL', {
+  const formatter = new Intl.DateTimeFormat('es-CL', {
     timeZone: 'America/Santiago',
     hour: 'numeric',
     hour12: false
-  }).format(now);
-  let hora = parseInt(horaStr, 10);
-  if (hora === 24) hora = 0;
+  });
+  let hora = parseInt(formatter.format(now), 10);
+  if (isNaN(hora) || hora === 24) hora = 0;
   return hora;
 }
 
@@ -421,7 +421,7 @@ async function enviarAGoogleSheets() {
     observaciones: obsUsuario,
     cavidad_molde: document.getElementById('input-cavidad').value,
 
-    // Datos y evaluaciones de las 13 especificaciones
+    // Mediciones y estados de los 13 parámetros
     color_med: document.getElementById('med-color').value.trim(),
     color_val: document.getElementById('val-color').value,
     
