@@ -2,7 +2,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
 
-// ⚠️ PEGA AQUÍ TU URL DESPLEGADA DE GOOGLE APPS SCRIPT
+// ⚠️ REEMPLAZA ESTA URL POR LA DE TU DESPLIEGUE EN GOOGLE APPS SCRIPT
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
 let productosCache = [];
@@ -19,8 +19,22 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCustomComboboxes();
 });
 
+// CÁLCULO DE HORA Y TURNO CON ZONA HORARIA AMERICA/SANTIAGO
+function obtenerHoraSantiago() {
+  const now = new Date();
+  const horaStr = new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago',
+    hour: 'numeric',
+    hour12: false
+  }).format(now);
+  let hora = parseInt(horaStr, 10);
+  if (hora === 24) hora = 0;
+  return hora;
+}
+
 function obtenerTurnoAuto() {
-  const hora = new Date().getHours();
+  const hora = obtenerHoraSantiago();
+  // Turno Mañana: 08:00 a 19:59 (8 a 19) | Turno Noche: 20:00 a 07:59
   return (hora >= 8 && hora < 20) ? "Turno Mañana" : "Turno Noche";
 }
 
@@ -161,7 +175,7 @@ function actualizarFichaProducto(prodId) {
 }
 
 function setupEventListeners() {
-  // Login
+  // Login Inspector
   document.getElementById('btn-login').addEventListener('click', () => {
     const userSelect = document.getElementById('login-inspector').value;
     const pin = document.getElementById('login-pin').value;
@@ -188,7 +202,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GENERAR CONSOLIDADO AHORA
+  // GENERAR CONSOLIDADO DE REPORTES AHORA
   const btnPdfAhora = document.getElementById('btn-generar-pdf-ahora');
   if (btnPdfAhora) {
     btnPdfAhora.addEventListener('click', async () => {
@@ -203,9 +217,9 @@ function setupEventListeners() {
           body: JSON.stringify({ action: 'generarConsolidado', turnoActual: turno })
         });
         const res = await response.json();
-        alert(res.message || "PDFs generados exitosamente en Google Drive.");
+        alert(res.message || "PDFs consolidados generados exitosamente en Google Drive.");
       } catch (err) {
-        alert("Proceso de generación de PDF consolidado completado en Google Drive.");
+        alert("Proceso de generación de PDF consolidado enviado a Google Drive.");
       }
 
       btnPdfAhora.disabled = false;
@@ -242,7 +256,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GUARDAR REGISTRO DE INSPECCIÓN (VALIDACIÓN DE 13 CAMPOS)
+  // GUARDAR REGISTRO DE INSPECCIÓN (VALIDACIÓN OBLIGATORIA DE LAS 13 MEDICIONES)
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
@@ -407,7 +421,7 @@ async function enviarAGoogleSheets() {
     observaciones: obsUsuario,
     cavidad_molde: document.getElementById('input-cavidad').value,
 
-    // Mediciones y estados de los 13 parámetros
+    // Datos y evaluaciones de las 13 especificaciones
     color_med: document.getElementById('med-color').value.trim(),
     color_val: document.getElementById('val-color').value,
     
