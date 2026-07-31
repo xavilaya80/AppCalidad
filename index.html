@@ -79,7 +79,7 @@
     
     .input-error { border: 2px solid #ef4444 !important; background-color: #450a0a !important; }
 
-    /* BUSCADOR TOUCH OPTIMIZADO PARA TABLETS */
+    /* BUSCADORES TOUCH OPTIMIZADOS PARA TABLETS */
     .combobox-dropdown {
       position: absolute; top: 100%; left: 0; right: 0; background: #0f172a;
       border: 2px solid var(--accent-blue); border-radius: 0 0 8px 8px;
@@ -139,7 +139,7 @@
 </head>
 <body>
 
-  <!-- Modal Login (Inspectores de Planta) -->
+  <!-- Modal Login -->
   <div id="login-modal" class="modal-overlay">
     <div class="modal-card">
       <h2>Módulo de Calidad</h2>
@@ -211,9 +211,12 @@
             Color: <span id="spec-color">-</span> | Peso: <span id="spec-peso">-</span> | Ciclo: <span id="spec-ciclo">-</span> | Hilo/Int: <span id="spec-diametros">-</span>
           </div>
 
+          <!-- OPERARIO COMO COMBOBOX / DESPLEGABLE BUSCABLE -->
           <div class="form-group">
             <label>Operario de Máquina:</label>
-            <input type="text" id="input-operario" class="ind-input" placeholder="Nombre del operario en turno (Opcional)">
+            <input type="text" id="input-search-operario" class="ind-input" placeholder="Toca aquí para ver lista o buscar operario..." autocomplete="off">
+            <input type="hidden" id="select-operario">
+            <div id="dropdown-operario" class="combobox-dropdown"></div>
           </div>
 
           <div class="grid-2">
@@ -239,7 +242,7 @@
           </div>
         </div>
 
-        <!-- Sección 2: Las 13 Especificaciones Técnicas OBLIGATORIAS -->
+        <!-- Sección 2: Especificaciones Técnicas (13 Parámetros) -->
         <div class="section-card">
           <div class="section-title">2. Especificaciones Técnicas y Mediciones (Obligatorias)</div>
           
@@ -354,7 +357,7 @@
           <div class="toggle-group-row">
             <div class="toggle-info">
               <span class="toggle-label">Resistencia a la Caída Libre <span class="req-star">*</span></span>
-              <input type="text" id="med-caida" class="ind-input-sm" placeholder="Resultado (Ej: Resiste a 1.2m)">
+              <input type="text" id="med-caida" class="ind-input-sm" placeholder="Resultado de prueba (Ej: Resiste a 1.2m)">
             </div>
             <button type="button" class="btn-toggle active-cumple" data-target="val-caida">Cumple</button>
             <input type="hidden" id="val-caida" value="Cumple">
