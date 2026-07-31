@@ -7,6 +7,7 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn
 
 let productosCache = [];
 let maquinasCache = [];
+let operariosCache = [];
 let historialCache = [];
 let html5QrCode = null;
 
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCustomComboboxes();
 });
 
-// OBTENER HORA REAL EN ZONA SANTIAGO, CHILE (INDEPENDIENTE DEL DISPOSITIVO)
+// OBTENER HORA REAL EN ZONA SANTIAGO, CHILE
 function obtenerHoraSantiago() {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat('es-CL', {
@@ -82,9 +83,9 @@ function setupNavigation() {
 }
 
 function setupCustomComboboxes() {
+  // 1. MÁQUINAS
   const inputMaq = document.getElementById('input-search-maquina');
   const dropMaq = document.getElementById('dropdown-maquina');
-  
   const abrirMaq = (e) => {
     if(e) e.stopPropagation();
     renderComboboxOptions(inputMaq, dropMaq, maquinasCache, 'maquina');
@@ -94,9 +95,9 @@ function setupCustomComboboxes() {
   inputMaq.addEventListener('touchstart', abrirMaq);
   inputMaq.addEventListener('input', abrirMaq);
 
+  // 2. PRODUCTOS
   const inputProd = document.getElementById('input-search-producto');
   const dropProd = document.getElementById('dropdown-producto');
-  
   const abrirProd = (e) => {
     if(e) e.stopPropagation();
     renderComboboxOptions(inputProd, dropProd, productosCache, 'producto');
@@ -106,18 +107,28 @@ function setupCustomComboboxes() {
   inputProd.addEventListener('touchstart', abrirProd);
   inputProd.addEventListener('input', abrirProd);
 
-  document.addEventListener('click', (e) => {
+  // 3. OPERARIOS
+  const inputOp = document.getElementById('input-search-operario');
+  const dropOp = document.getElementById('dropdown-operario');
+  const abrirOp = (e) => {
+    if(e) e.stopPropagation();
+    renderComboboxOptions(inputOp, dropOp, operariosCache, 'operario');
+  };
+  inputOp.addEventListener('focus', abrirOp);
+  inputOp.addEventListener('click', abrirOp);
+  inputOp.addEventListener('touchstart', abrirOp);
+  inputOp.addEventListener('input', abrirOp);
+
+  // Cerrar al tocar fuera
+  const cerrarTodos = (e) => {
     if (!e.target.closest('.form-group')) {
       dropMaq.style.display = 'none';
       dropProd.style.display = 'none';
+      dropOp.style.display = 'none';
     }
-  });
-  document.addEventListener('touchstart', (e) => {
-    if (!e.target.closest('.form-group')) {
-      dropMaq.style.display = 'none';
-      dropProd.style.display = 'none';
-    }
-  });
+  };
+  document.addEventListener('click', cerrarTodos);
+  document.addEventListener('touchstart', cerrarTodos);
 }
 
 function renderComboboxOptions(inputEl, dropEl, data, tipo) {
@@ -202,7 +213,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GENERAR CONSOLIDADO DE REPORTES AHORA
+  // GENERAR CONSOLIDADO
   const btnPdfAhora = document.getElementById('btn-generar-pdf-ahora');
   if (btnPdfAhora) {
     btnPdfAhora.addEventListener('click', async () => {
@@ -256,7 +267,7 @@ function setupEventListeners() {
     checkSession();
   });
 
-  // GUARDAR REGISTRO DE INSPECCIÓN (VALIDACIÓN OBLIGATORIA DE LAS 13 MEDICIONES)
+  // GUARDAR REGISTRO DE INSPECCIÓN
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const maquinaId = document.getElementById('select-maquina').value;
     const productoId = document.getElementById('select-producto').value;
@@ -366,6 +377,7 @@ async function loadCatalogData() {
 
     maquinasCache = data.maquinas || [];
     productosCache = data.productos || [];
+    operariosCache = data.operarios || [];
     historialCache = data.historial || [];
 
     renderHistorialInspector();
@@ -406,6 +418,9 @@ function renderHistorialInspector() {
 async function enviarAGoogleSheets() {
   const maquinaId = document.getElementById('select-maquina').value;
   const productoId = document.getElementById('select-producto').value;
+  
+  // Obtiene el operario seleccionado o el texto escrito
+  const operarioVal = document.getElementById('select-operario').value || document.getElementById('input-search-operario').value.trim();
   const inspectorActual = sessionStorage.getItem('usuario_calidad');
 
   const obsUsuario = document.getElementById('input-observaciones').value.trim();
@@ -415,13 +430,13 @@ async function enviarAGoogleSheets() {
     inspector_calidad: inspectorActual,
     id_maquina: maquinaId,
     id_producto: productoId,
-    operario: document.getElementById('input-operario').value,
+    operario: operarioVal,
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
     observaciones: obsUsuario,
     cavidad_molde: document.getElementById('input-cavidad').value,
 
-    // Mediciones y estados de los 13 parámetros
+    // Mediciones y estados
     color_med: document.getElementById('med-color').value.trim(),
     color_val: document.getElementById('val-color').value,
     
@@ -484,6 +499,7 @@ function resetFormulario() {
   
   document.getElementById('select-maquina').value = '';
   document.getElementById('select-producto').value = '';
+  document.getElementById('select-operario').value = '';
   document.getElementById('specs-banner').style.display = 'none';
   
   document.querySelectorAll('.btn-toggle').forEach(btn => {
