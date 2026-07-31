@@ -407,7 +407,7 @@ async function enviarAGoogleSheets() {
     observaciones: obsUsuario,
     cavidad_molde: document.getElementById('input-cavidad').value,
 
-    // Mediciones y estados
+    // Mediciones y estados de los 13 parámetros
     color_med: document.getElementById('med-color').value.trim(),
     color_val: document.getElementById('val-color').value,
     
