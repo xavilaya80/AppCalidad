@@ -8,6 +8,11 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn
 let productosCache = [];
 let maquinasCache = [];
 let historialCache = [];
+let operariosCache = [
+  { id: "Boris Navarro", nombre: "Boris Navarro" },
+  { id: "Juan Pérez", nombre: "Juan Pérez" },
+  { id: "Carlos Soto", nombre: "Carlos Soto" }
+];
 let html5QrCode = null;
 let currentDraftId = null; 
 
@@ -71,14 +76,14 @@ function setupNavigation() {
   });
 }
 
-// --- BORRADORES LOCALES ---
+// --- RECOLECCIÓN DE DATOS ---
 function recopilarDatosFormulario() {
   return {
     maquinaId: document.getElementById('select-maquina').value,
     maquinaSearch: document.getElementById('input-search-maquina').value,
     productoId: document.getElementById('select-producto').value,
     productoSearch: document.getElementById('input-search-producto').value,
-    operario: document.getElementById('input-operario').value,
+    operario: document.getElementById('input-search-operario').value,
     lote_mp: document.getElementById('input-lote-mp').value,
     lote_bxa: document.getElementById('input-lote-bxa').value,
     observaciones: document.getElementById('input-observaciones').value,
@@ -99,6 +104,7 @@ function recopilarDatosFormulario() {
   };
 }
 
+// --- GESTIÓN DE BORRADORES ---
 function guardarComoBorrador() {
   const data = recopilarDatosFormulario();
   if (!data.maquinaId || !data.productoId) { alert("⚠️ Selecciona al menos Máquina y Producto para guardar un borrador."); return; }
@@ -119,7 +125,7 @@ function guardarComoBorrador() {
   } else { borradores.push(nuevoBorrador); }
 
   localStorage.setItem('borradores_calidad', JSON.stringify(borradores));
-  alert("📝 Borrador guardado exitosamente.");
+  alert("📝 Borrador guardado exitosamente en la tablet.");
   resetFormulario();
   actualizarContadorBorradores();
 }
@@ -151,7 +157,8 @@ window.cargarBorrador = function(id) {
   
   document.getElementById('select-maquina').value = d.maquinaId; document.getElementById('input-search-maquina').value = d.maquinaSearch;
   document.getElementById('select-producto').value = d.productoId; document.getElementById('input-search-producto').value = d.productoSearch;
-  document.getElementById('input-operario').value = d.operario; document.getElementById('input-lote-mp').value = d.lote_mp;
+  document.getElementById('input-search-operario').value = d.operario || '';
+  document.getElementById('input-lote-mp').value = d.lote_mp;
   document.getElementById('input-lote-bxa').value = d.lote_bxa; document.getElementById('input-observaciones').value = d.observaciones;
   document.getElementById('input-cavidad').value = d.cavidad_molde || 1;
 
@@ -188,20 +195,38 @@ function actualizarContadorBorradores() {
   document.getElementById('contador-borradores').innerText = misBorradores;
 }
 
-// --- COMBOBOXES ---
+// --- COMBOBOXES INTELIGENTES (Máquina, Producto y Operario) ---
 function setupCustomComboboxes() {
   const inputs = [
     { in: 'input-search-maquina', drop: 'dropdown-maquina', dataObj: () => maquinasCache, type: 'maquina' },
-    { in: 'input-search-producto', drop: 'dropdown-producto', dataObj: () => productosCache, type: 'producto' }
+    { in: 'input-search-producto', drop: 'dropdown-producto', dataObj: () => productosCache, type: 'producto' },
+    { in: 'input-search-operario', drop: 'dropdown-operario', dataObj: () => operariosCache, type: 'operario' }
   ];
 
   inputs.forEach(el => {
-    const inputEl = document.getElementById(el.in); const dropEl = document.getElementById(el.drop);
-    const abrirMenu = (e) => { if(e) e.stopPropagation(); renderComboboxOptions(inputEl, dropEl, el.dataObj(), el.type); };
-    inputEl.addEventListener('focus', abrirMenu); inputEl.addEventListener('click', abrirMenu); inputEl.addEventListener('input', abrirMenu);
+    const inputEl = document.getElementById(el.in); 
+    const dropEl = document.getElementById(el.drop);
+    if (!inputEl || !dropEl) return;
+
+    const abrirMenu = (e) => { 
+      if(e) e.stopPropagation(); 
+      renderComboboxOptions(inputEl, dropEl, el.dataObj(), el.type); 
+    };
+
+    inputEl.addEventListener('focus', abrirMenu); 
+    inputEl.addEventListener('click', abrirMenu); 
+    inputEl.addEventListener('input', () => {
+      if(el.type === 'operario') {
+        document.getElementById('select-operario').value = inputEl.value;
+      }
+      abrirMenu();
+    });
   });
+
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.form-group')) { document.getElementById('dropdown-maquina').style.display = 'none'; document.getElementById('dropdown-producto').style.display = 'none'; }
+    if (!e.target.closest('.form-group')) { 
+      document.querySelectorAll('.combobox-dropdown').forEach(d => d.style.display = 'none'); 
+    }
   });
 }
 
@@ -210,15 +235,19 @@ function renderComboboxOptions(inputEl, dropEl, data, tipo) {
   dropEl.innerHTML = '';
   const matches = data.filter(item => (item.id || '').toLowerCase().includes(filter) || (item.nombre || '').toLowerCase().includes(filter));
 
-  if (matches.length === 0) { dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8;">Sin coincidencias</div>`; }
-  else {
+  if (matches.length === 0 && tipo !== 'operario') { 
+    dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8;">Sin coincidencias</div>`; 
+  } else {
     matches.forEach(item => {
       const div = document.createElement('div'); div.className = 'combobox-item';
       const labelText = (item.nombre && item.nombre !== item.id) ? `${item.nombre} (${item.id})` : item.id;
       div.innerText = labelText;
       div.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
-        inputEl.value = labelText; document.getElementById(`select-${tipo}`).value = item.id;
+        inputEl.value = labelText; 
+        if(tipo !== 'operario') {
+          document.getElementById(`select-${tipo}`).value = item.id;
+        }
         dropEl.style.display = 'none';
         if (tipo === 'producto') actualizarFichaProducto(item.id);
       });
@@ -238,7 +267,7 @@ function actualizarFichaProducto(prodId) {
   } else { banner.style.display = 'none'; }
 }
 
-// --- EVENTOS PRINCIPALES ---
+// --- EVENTOS PRINCIPALES Y VALIDACIÓN ESTRICTA ---
 function setupEventListeners() {
   document.getElementById('btn-login').addEventListener('click', () => {
     const user = document.getElementById('login-inspector').value; const pin = document.getElementById('login-pin').value;
@@ -250,32 +279,58 @@ function setupEventListeners() {
   document.getElementById('btn-logout').addEventListener('click', () => { sessionStorage.removeItem('usuario_calidad'); checkSession(); });
   document.getElementById('btn-guardar-borrador').addEventListener('click', guardarComoBorrador);
 
+  // BOTÓN GUARDAR REGISTRO FINAL (CON VALIDACIÓN ESTRICTA DE LAS 13 MEDICIONES)
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const dataForm = recopilarDatosFormulario();
-    if (!dataForm.maquinaId || !dataForm.productoId) { alert("⚠️ Faltan datos clave de Máquina o Producto."); return; }
+    if (!dataForm.maquinaId || !dataForm.productoId || !dataForm.operario.trim()) { 
+      alert("⚠️ Faltan datos clave de Máquina, Producto u Operario."); 
+      return; 
+    }
 
-    const medicionesDef = [ { id: 'med-color', n: 'Color' }, { id: 'med-espesor', n: 'Espesor' }, { id: 'med-ciclo', n: 'Ciclo' }, { id: 'med-peso', n: 'Peso' }, { id: 'med-calce', n: 'Calce' }, { id: 'med-filtracion', n: 'Filtración' }, { id: 'med-probador', n: 'Probador' }, { id: 'med-hcuello', n: 'H Cuello' }, { id: 'med-phi-int', n: 'Φ Int' }, { id: 'med-phi-hilo', n: 'Φ Hilo' }, { id: 'med-phi-trinquete', n: 'Φ Trinquete' }, { id: 'med-rebalse', n: 'Rebalse' }, { id: 'med-caida', n: 'Caída' } ];
+    const medicionesDef = [ 
+      { id: 'med-color', n: 'Color' }, { id: 'med-espesor', n: 'Espesor' }, 
+      { id: 'med-ciclo', n: 'Ciclo' }, { id: 'med-peso', n: 'Peso' }, 
+      { id: 'med-calce', n: 'Calce' }, { id: 'med-filtracion', n: 'Filtración' }, 
+      { id: 'med-probador', n: 'Probador' }, { id: 'med-hcuello', n: 'H Cuello' }, 
+      { id: 'med-phi-int', n: 'Φ Int' }, { id: 'med-phi-hilo', n: 'Φ Hilo' }, 
+      { id: 'med-phi-trinquete', n: 'Φ Trinquete' }, { id: 'med-rebalse', n: 'Rebalse' }, 
+      { id: 'med-caida', n: 'Caída' } 
+    ];
     
     let faltantes = [];
     medicionesDef.forEach(m => {
       const el = document.getElementById(m.id);
-      if (!el.value.trim()) { el.style.borderColor = 'red'; faltantes.push(m.n); } else { el.style.borderColor = '#cbd5e1'; }
+      if (!el.value.trim()) { 
+        el.style.borderColor = 'red'; 
+        faltantes.push(m.n); 
+      } else { 
+        el.style.borderColor = '#64748b'; 
+      }
     });
 
-    if (faltantes.length > 0) { alert("⚠️ Faltan completar: " + faltantes.join(", ")); return; }
+    if (faltantes.length > 0) { 
+      alert("⚠️ NO SE PUEDE GUARDAR EL REGISTRO FINAL. Faltan completar en el laboratorio:\n\n• " + faltantes.join("\n• ")); 
+      return; 
+    }
 
-    const btn = document.getElementById('btn-guardar-registro'); btn.disabled = true; btn.innerText = "Enviando...";
+    const btn = document.getElementById('btn-guardar-registro'); 
+    btn.disabled = true; 
+    btn.innerText = "Enviando a Drive...";
+
     const exito = await enviarAGoogleSheets(dataForm);
     if (exito) {
-      alert("¡Registro guardado exitosamente!");
+      alert("¡Registro FINAL guardado exitosamente!");
       if (currentDraftId) {
         let borradores = JSON.parse(localStorage.getItem('borradores_calidad')) || [];
         borradores = borradores.filter(b => b.id !== currentDraftId);
         localStorage.setItem('borradores_calidad', JSON.stringify(borradores));
       }
-      resetFormulario(); actualizarContadorBorradores(); loadCatalogData();
+      resetFormulario(); 
+      actualizarContadorBorradores(); 
+      loadCatalogData();
     }
-    btn.disabled = false; btn.innerText = "✅ GUARDAR REGISTRO FINAL";
+    btn.disabled = false; 
+    btn.innerText = "✅ GUARDAR REGISTRO FINAL";
   });
 
   document.getElementById('btn-cerrar-turno').addEventListener('click', cerrarTurno);
@@ -297,9 +352,17 @@ function setupToggles() {
 }
 
 async function enviarAGoogleSheets(data) {
-  data.turno = obtenerTurnoAuto(); data.inspector_calidad = sessionStorage.getItem('usuario_calidad'); data.id_maquina = data.maquinaId; data.id_producto = data.productoId;
-  try { await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) }); return true; } 
-  catch (err) { alert("Error al conectar con Drive."); return false; }
+  data.turno = obtenerTurnoAuto(); 
+  data.inspector_calidad = sessionStorage.getItem('usuario_calidad'); 
+  data.id_maquina = data.maquinaId; 
+  data.id_producto = data.productoId;
+  try { 
+    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) }); 
+    return true; 
+  } catch (err) { 
+    alert("Error al conectar con Drive."); 
+    return false; 
+  }
 }
 
 function resetFormulario() {
