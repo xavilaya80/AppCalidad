@@ -8,28 +8,8 @@
   <!-- LIBRERÍA PARA LEER QR -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   
-  <!-- ENLACE A TU ARCHIVO DE ESTILOS ORIGINAL -->
-  <link rel="stylesheet" href="style.css">
-
-  <!-- ESTILOS ESTRUCTURALES OBLIGATORIOS (Para que funcionen las pestañas y modales nuevos) -->
-  <style>
-    /* Control de Pestañas */
-    .nav-tabs { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; }
-    .nav-tab { padding: 10px 15px; cursor: pointer; background: #e2e8f0; border-radius: 5px 5px 0 0; font-weight: bold; white-space: nowrap; }
-    .nav-tab.active { background: #0284c7; color: white; }
-    .app-view { display: none; }
-    .app-view.active { display: block; }
-    
-    /* Control de Modales (Login y Escáner) */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; }
-    
-    /* Buscadores Desplegables */
-    .form-group { position: relative; margin-bottom: 15px; }
-    .combobox-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .combobox-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
-    .combobox-item:hover { background-color: #f1f5f9; }
-  </style>
+  <!-- ENLACE A TU ARCHIVO DE ESTILOS -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -41,7 +21,6 @@
         <label>Seleccione Inspector:</label>
         <select id="login-inspector">
           <option value="">-- Seleccionar --</option>
-          <!-- USUARIOS ACTUALIZADOS -->
           <option value="Estrella">Estrella</option>
           <option value="Micaela">Micaela</option>
           <option value="Manuel">Manuel</option>
@@ -51,13 +30,13 @@
         <label>PIN de Seguridad:</label>
         <input type="password" id="login-pin" placeholder="Ingrese PIN">
       </div>
-      <p id="login-error" style="color: red; display: none; font-weight: bold;"></p>
+      <p id="login-error"></p>
       <button id="btn-login" class="btn btn-primary">Entrar</button>
     </div>
   </div>
 
   <!-- APLICACIÓN PRINCIPAL -->
-  <div id="app-content" style="display: none;">
+  <div id="app-content">
     
     <div class="header">
       <div>
@@ -71,7 +50,7 @@
       </div>
     </div>
 
-    <!-- PESTAÑAS DE NAVEGACIÓN (Aquí está la de borradores) -->
+    <!-- PESTAÑAS DE NAVEGACIÓN -->
     <div class="nav-tabs">
       <div class="nav-tab active" data-target="view-nueva">📋 Nueva Inspección</div>
       <div class="nav-tab" data-target="view-borradores">📝 Borradores (<span id="contador-borradores">0</span>)</div>
@@ -102,7 +81,7 @@
           <div id="dropdown-producto" class="combobox-dropdown"></div>
         </div>
 
-        <div id="specs-banner" style="display: none; padding: 10px; background: #e0f2fe; border: 1px solid #38bdf8; border-radius: 5px; margin-bottom: 15px;">
+        <div id="specs-banner" style="display: none;">
           <strong>Tolerancias del Producto:</strong><br>
           Color: <span id="spec-color"></span> | Peso: <span id="spec-peso"></span> | Ciclo: <span id="spec-ciclo"></span> | Diámetros (Hilo/Int): <span id="spec-diametros"></span>
         </div>
@@ -135,30 +114,27 @@
         </div>
       </div>
 
-      <!-- BOTONES DE GUARDADO -->
-      <div class="button-group" style="display: flex; gap: 10px;">
+      <div class="button-group">
         <button id="btn-guardar-borrador" class="btn btn-secondary">💾 Guardar como Borrador</button>
         <button id="btn-guardar-registro" class="btn btn-success">✅ GUARDAR REGISTRO FINAL</button>
       </div>
     </div>
 
-    <!-- VISTA 2: BORRADORES PENDIENTES (La que creíste que se había borrado) -->
+    <!-- VISTA 2: BORRADORES PENDIENTES -->
     <div id="view-borradores" class="app-view">
       <h3>Borradores en pausa</h3>
-      <p>Toque "Continuar" para retomar la inspección con los datos que ya había ingresado.</p>
+      <p>Toque "Continuar" para retomar la inspección con los datos ingresados.</p>
       <div class="table-container">
-        <table style="width: 100%; text-align: left; border-collapse: collapse;">
+        <table>
           <thead>
-            <tr style="background: #0f172a; color: white;">
-              <th style="padding: 10px;">Fecha/Hora</th>
-              <th style="padding: 10px;">Máquina</th>
-              <th style="padding: 10px;">Producto</th>
-              <th style="padding: 10px;">Acciones</th>
+            <tr>
+              <th>Fecha/Hora</th>
+              <th>Máquina</th>
+              <th>Producto</th>
+              <th>Acciones</th>
             </tr>
           </thead>
-          <tbody id="tabla-borradores-body">
-            <!-- Se llena con JS -->
-          </tbody>
+          <tbody id="tabla-borradores-body"></tbody>
         </table>
       </div>
     </div>
@@ -166,20 +142,20 @@
     <!-- VISTA 3: HISTORIAL -->
     <div id="view-historial" class="app-view">
       <h3>Mis Registros de este Turno</h3>
-      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
         <button id="btn-refresh-historial" class="btn btn-primary">🔄 Actualizar</button>
         <button id="btn-generar-pdf-ahora" class="btn btn-warning">📄 Forzar PDF Ahora</button>
       </div>
       <div class="table-container">
-        <table style="width: 100%; text-align: left; border-collapse: collapse;">
+        <table>
           <thead>
-            <tr style="background: #0f172a; color: white;">
-              <th style="padding: 10px;">ID</th>
-              <th style="padding: 10px;">N°</th>
-              <th style="padding: 10px;">Fecha/Hora</th>
-              <th style="padding: 10px;">Turno</th>
-              <th style="padding: 10px;">Máquina</th>
-              <th style="padding: 10px;">Producto</th>
+            <tr>
+              <th>ID</th>
+              <th>N°</th>
+              <th>Fecha/Hora</th>
+              <th>Turno</th>
+              <th>Máquina</th>
+              <th>Producto</th>
             </tr>
           </thead>
           <tbody id="tabla-historial-body"></tbody>
@@ -189,7 +165,6 @@
 
   </div>
 
-  <!-- MODAL ESCÁNER QR -->
   <div id="qr-modal" class="modal">
     <div class="modal-content">
       <div id="reader"></div>
