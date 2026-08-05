@@ -4,53 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>App Control de Calidad</title>
+  
   <!-- LIBRERÍA PARA LEER QR -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <style>
-    /* ESTILOS BÁSICOS (Ajusta según tu diseño original) */
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; }
-    .header { background-color: #0f172a; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-    .nav-tabs { display: flex; background-color: #1e293b; overflow-x: auto; }
-    .nav-tab { color: white; padding: 15px 20px; cursor: pointer; text-transform: uppercase; font-size: 14px; font-weight: bold; }
-    .nav-tab.active { background-color: #0284c7; border-bottom: 3px solid #38bdf8; }
-    .app-view { display: none; padding: 20px; }
-    .app-view.active { display: block; }
-    
-    /* Formularios */
-    .form-group { margin-bottom: 15px; position: relative; }
-    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #334155; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
-    .input-error { border: 2px solid #ef4444 !important; background-color: #fef2f2; }
-    
-    /* Combobox / Buscadores */
-    .combobox-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .combobox-item { padding: 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
-    .combobox-item:hover { background-color: #e0f2fe; }
-
-    /* Botones */
-    .btn { padding: 12px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; width: 100%; margin-bottom: 10px; }
-    .btn-primary { background-color: #0284c7; color: white; }
-    .btn-success { background-color: #16a34a; color: white; }
-    .btn-warning { background-color: #eab308; color: black; }
-    .btn-danger { background-color: #dc2626; color: white; }
-    .btn-secondary { background-color: #64748b; color: white; }
-    
-    /* Toggles Cumple/No Cumple */
-    .btn-toggle { width: 100px; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; border: none; }
-    .active-cumple { background-color: #16a34a; color: white; }
-    .active-nocumple { background-color: #dc2626; color: white; }
-    
-    .medicion-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 5px; border: 1px solid #e2e8f0; }
-    .medicion-row label { flex: 1; margin: 0; }
-    .medicion-row input[type="text"] { flex: 2; }
-    
-    /* Modales y Tablas */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; text-align: center; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 14px; }
-    th, td { padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
-    th { background-color: #0f172a; color: white; }
-  </style>
+  
+  <!-- ⚠️ ENLACE A TU ARCHIVO DE ESTILOS ORIGINAL (Ajusta el nombre si es distinto) -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -62,9 +21,9 @@
         <label>Seleccione Inspector:</label>
         <select id="login-inspector">
           <option value="">-- Seleccionar --</option>
-          <option value="Inspector 1">Inspector 1</option>
-          <option value="Inspector 2">Inspector 2</option>
-          <option value="Supervisor">Supervisor</option>
+          <option value="Estrella">Estrella</option>
+          <option value="Micaela">Micaela</option>
+          <option value="Manuel">Manuel</option>
         </select>
       </div>
       <div class="form-group">
@@ -81,16 +40,17 @@
     
     <div class="header">
       <div>
-        <h2 style="margin: 0; font-size: 18px;">Control de Calidad</h2>
-        <span id="user-display" style="font-size: 12px; color: #cbd5e1;"></span> | 
-        <span id="turno-header-badge" style="font-size: 12px; font-weight: bold; color: #38bdf8;"></span>
+        <h2>Control de Calidad</h2>
+        <span id="user-display"></span> | 
+        <span id="turno-header-badge"></span>
       </div>
       <div>
-        <button id="btn-cerrar-turno" class="btn btn-danger" style="width: auto; padding: 8px 12px;">Cerrar Turno</button>
-        <button id="btn-logout" class="btn btn-secondary" style="width: auto; padding: 8px 12px;">Salir</button>
+        <button id="btn-cerrar-turno" class="btn btn-danger">Cerrar Turno</button>
+        <button id="btn-logout" class="btn btn-secondary">Salir</button>
       </div>
     </div>
 
+    <!-- PESTAÑAS DE NAVEGACIÓN -->
     <div class="nav-tabs">
       <div class="nav-tab active" data-target="view-nueva">📋 Nueva Inspección</div>
       <div class="nav-tab" data-target="view-borradores">📝 Borradores (<span id="contador-borradores">0</span>)</div>
@@ -101,14 +61,14 @@
     <div id="view-nueva" class="app-view active">
       <input type="hidden" id="input-turno">
       
-      <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+      <div class="card-section">
         <h3>1. Identificación</h3>
         
         <div class="form-group">
           <label>Máquina:</label>
           <div style="display: flex; gap: 10px;">
             <input type="text" id="input-search-maquina" placeholder="Buscar máquina..." autocomplete="off">
-            <button id="btn-qr" class="btn btn-primary" style="width: 60px; margin: 0;">📷</button>
+            <button id="btn-qr" class="btn btn-primary">📷</button>
           </div>
           <input type="hidden" id="select-maquina">
           <div id="dropdown-maquina" class="combobox-dropdown"></div>
@@ -122,7 +82,7 @@
         </div>
 
         <!-- Banner de Especificaciones -->
-        <div id="specs-banner" style="display: none; background: #e0f2fe; border: 1px solid #38bdf8; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 12px;">
+        <div id="specs-banner" style="display: none;">
           <strong>Tolerancias del Producto:</strong><br>
           Color: <span id="spec-color"></span> | Peso: <span id="spec-peso"></span> | Ciclo: <span id="spec-ciclo"></span> | Diámetros (Hilo/Int): <span id="spec-diametros"></span>
         </div>
@@ -133,8 +93,9 @@
         <div class="form-group"><label>Lote BXA:</label><input type="text" id="input-lote-bxa"></div>
       </div>
 
-      <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+      <div class="card-section">
         <h3>2. Mediciones (Obligatorias para Guardar Registro)</h3>
+        
         <!-- Las 13 Especificaciones -->
         <div class="medicion-row"><label>Color / Apariencia</label><input type="text" id="med-color" placeholder="Dato..."><button class="btn-toggle active-cumple" data-target="val-color">Cumple</button><input type="hidden" id="val-color" value="Cumple"></div>
         <div class="medicion-row"><label>Espesor Pared</label><input type="text" id="med-espesor" placeholder="Dato..."><button class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button><input type="hidden" id="val-espesor" value="Cumple"></div>
@@ -150,26 +111,26 @@
         <div class="medicion-row"><label>Rebalse</label><input type="text" id="med-rebalse" placeholder="Dato..."><button class="btn-toggle active-cumple" data-target="val-rebalse">Cumple</button><input type="hidden" id="val-rebalse" value="Cumple"></div>
         <div class="medicion-row"><label>Caída Libre</label><input type="text" id="med-caida" placeholder="Dato..."><button class="btn-toggle active-cumple" data-target="val-caida">Cumple</button><input type="hidden" id="val-caida" value="Cumple"></div>
         
-        <div class="form-group" style="margin-top: 15px;">
+        <div class="form-group">
           <label>Observaciones Adicionales:</label>
           <textarea id="input-observaciones" rows="3" placeholder="Si hay algún rechazo, explique aquí..."></textarea>
         </div>
       </div>
 
       <!-- BOTONES DE GUARDADO -->
-      <div style="display: flex; gap: 10px;">
-        <button id="btn-guardar-borrador" class="btn btn-secondary">💾 Guardar como Borrador (Pausar)</button>
+      <div class="button-group" style="display: flex; gap: 10px;">
+        <button id="btn-guardar-borrador" class="btn btn-secondary">💾 Guardar como Borrador</button>
         <button id="btn-guardar-registro" class="btn btn-success">✅ GUARDAR REGISTRO FINAL</button>
       </div>
     </div>
 
     <!-- VISTA 2: BORRADORES PENDIENTES -->
     <div id="view-borradores" class="app-view">
-      <h3>Borradores en pausa (En esta Tablet)</h3>
-      <p style="font-size: 12px; color: #64748b;">Toque "Continuar" para llevar los datos tomados en planta al formulario y terminar la inspección en el laboratorio.</p>
-      <div style="overflow-x: auto;">
+      <h3>Borradores en pausa</h3>
+      <p>Toque "Continuar" para retomar la inspección.</p>
+      <div class="table-container">
         <table>
-          <thead><tr><th>Fecha/Hora Creado</th><th>Máquina</th><th>Producto</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Fecha/Hora</th><th>Máquina</th><th>Producto</th><th>Acciones</th></tr></thead>
           <tbody id="tabla-borradores-body">
             <!-- Se llena con JS -->
           </tbody>
@@ -180,9 +141,9 @@
     <!-- VISTA 3: HISTORIAL -->
     <div id="view-historial" class="app-view">
       <h3>Mis Registros de este Turno</h3>
-      <button id="btn-refresh-historial" class="btn btn-primary" style="width: auto;">🔄 Actualizar</button>
-      <button id="btn-generar-pdf-ahora" class="btn btn-warning" style="width: auto;">📄 Forzar PDF Consolidado Ahora</button>
-      <div style="overflow-x: auto;">
+      <button id="btn-refresh-historial" class="btn btn-primary">🔄 Actualizar</button>
+      <button id="btn-generar-pdf-ahora" class="btn btn-warning">📄 Generar PDF Ahora</button>
+      <div class="table-container">
         <table>
           <thead><tr><th>ID</th><th>N°</th><th>Fecha/Hora</th><th>Turno</th><th>Máquina</th><th>Operario</th><th>Producto</th><th>Obs.</th></tr></thead>
           <tbody id="tabla-historial-body"></tbody>
@@ -194,9 +155,9 @@
 
   <!-- MODAL ESCÁNER QR -->
   <div id="qr-modal" class="modal">
-    <div class="modal-content" style="background: transparent; box-shadow: none;">
-      <div id="reader" style="width: 100%; max-width: 300px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden;"></div>
-      <button id="btn-close-qr" class="btn btn-danger" style="margin-top: 15px; max-width: 300px;">Cancelar Escáner</button>
+    <div class="modal-content">
+      <div id="reader"></div>
+      <button id="btn-close-qr" class="btn btn-danger">Cancelar Escáner</button>
     </div>
   </div>
 
