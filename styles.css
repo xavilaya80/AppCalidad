@@ -35,7 +35,6 @@ body {
   padding-bottom: 40px;
 }
 
-/* ENCABEZADO FIJO OSCURO (Como en tu video) */
 .header {
   background: var(--slate-900);
   color: white;
@@ -60,7 +59,6 @@ body {
   color: #38bdf8;
 }
 
-/* PESTAÑAS DE NAVEGACIÓN (Inspección, Borradores, Historial) */
 .nav-tabs {
   display: flex;
   background-color: var(--slate-800);
@@ -87,7 +85,6 @@ body {
   color: white;
 }
 
-/* CONTENEDOR PRINCIPAL Y VISTAS */
 #app-content {
   max-width: 800px;
   margin: 10px auto;
@@ -113,7 +110,6 @@ body {
   display: block;
 }
 
-/* SECCIONES TIPO TARJETA OSCURA */
 .card-section {
   background: var(--slate-800);
   border: 1px solid var(--slate-700);
@@ -132,7 +128,6 @@ body {
   padding-bottom: 6px;
 }
 
-/* FORMULARIOS E INPUTS */
 .form-group {
   position: relative;
   margin-bottom: 12px;
@@ -173,7 +168,6 @@ body {
   padding: 10px;
 }
 
-/* BUSCADOR DESPLEGABLE (COMBOBOX) */
 .combobox-dropdown {
   display: none;
   position: absolute;
@@ -202,7 +196,6 @@ body {
   color: white;
 }
 
-/* BANNER DE ESPECIFICACIONES (El cuadro azul oscuro con las tolerancias) */
 #specs-banner {
   background: rgba(2, 132, 199, 0.15);
   border: 1px solid var(--ind-blue);
@@ -213,7 +206,6 @@ body {
   color: #e0f2fe;
 }
 
-/* FILAS DE MEDICIÓN Y TOGGLES */
 .medicion-row {
   display: flex;
   justify-content: space-between;
@@ -234,7 +226,8 @@ body {
   margin: 0;
 }
 
-.medicion-row input[type="text"] {
+.medicion-row input[type="text"],
+.medicion-row input[type="number"] {
   flex: 1.2;
   height: 36px;
   padding: 0 8px;
@@ -246,7 +239,6 @@ body {
   outline: none;
 }
 
-/* BOTONES TOGGLE (Cumple / No Cumple) */
 .btn-toggle {
   height: 36px;
   min-width: 100px;
@@ -268,7 +260,6 @@ body {
   color: white !important;
 }
 
-/* BOTONES GENERALES Y GRUPO */
 .btn {
   height: 42px;
   padding: 0 15px;
@@ -295,7 +286,6 @@ body {
 .btn-danger { background: var(--ng-red); color: white; }
 .btn-warning { background: #eab308; color: var(--slate-900); }
 
-/* MODALES Y TABLAS */
 .modal {
   display: none;
   position: fixed;
