@@ -94,17 +94,17 @@
       <div class="card-section">
         <h3>2. Mediciones (Obligatorias para Registro Final)</h3>
         <div class="medicion-row"><label>Color / Apariencia</label><input type="text" id="med-color" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-color">Cumple</button><input type="hidden" id="val-color" value="Cumple"></div>
-        <div class="medicion-row"><label>Espesor Pared</label><input type="text" id="med-espesor" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button><input type="hidden" id="val-espesor" value="Cumple"></div>
-        <div class="medicion-row"><label>Ciclo (s)</label><input type="text" id="med-ciclo" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button><input type="hidden" id="val-ciclo" value="Cumple"></div>
-        <div class="medicion-row"><label>Peso (g)</label><input type="text" id="med-peso" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-peso">Cumple</button><input type="hidden" id="val-peso" value="Cumple"></div>
+        <div class="medicion-row"><label>Espesor Pared</label><input type="number" step="0.01" inputmode="decimal" id="med-espesor" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button><input type="hidden" id="val-espesor" value="Cumple"></div>
+        <div class="medicion-row"><label>Ciclo (s)</label><input type="number" step="0.1" inputmode="decimal" id="med-ciclo" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-ciclo">Cumple</button><input type="hidden" id="val-ciclo" value="Cumple"></div>
+        <div class="medicion-row"><label>Peso (g)</label><input type="number" step="0.01" inputmode="decimal" id="med-peso" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-peso">Cumple</button><input type="hidden" id="val-peso" value="Cumple"></div>
         <div class="medicion-row"><label>Calce Tapa</label><input type="text" id="med-calce" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-calce">Cumple</button><input type="hidden" id="val-calce" value="Cumple"></div>
         <div class="medicion-row"><label>Filtración</label><input type="text" id="med-filtracion" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button><input type="hidden" id="val-filtracion" value="Cumple"></div>
         <div class="medicion-row"><label>Probador</label><input type="text" id="med-probador" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-probador">Cumple</button><input type="hidden" id="val-probador" value="Cumple"></div>
-        <div class="medicion-row"><label>H Cuello</label><input type="text" id="med-hcuello" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-hcuello">Cumple</button><input type="hidden" id="val-hcuello" value="Cumple"></div>
-        <div class="medicion-row"><label>Φ Int. Gollete</label><input type="text" id="med-phi-int" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-int">Cumple</button><input type="hidden" id="val-phi-int" value="Cumple"></div>
-        <div class="medicion-row"><label>Φ Hilo Gollete</label><input type="text" id="med-phi-hilo" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-hilo">Cumple</button><input type="hidden" id="val-phi-hilo" value="Cumple"></div>
-        <div class="medicion-row"><label>Φ Trinquete</label><input type="text" id="med-phi-trinquete" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-trinquete">Cumple</button><input type="hidden" id="val-phi-trinquete" value="Cumple"></div>
-        <div class="medicion-row"><label>Rebalse</label><input type="text" id="med-rebalse" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-rebalse">Cumple</button><input type="hidden" id="val-rebalse" value="Cumple"></div>
+                <div class="medicion-row"><label>H Cuello</label><input type="number" step="0.01" inputmode="decimal" id="med-hcuello" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-hcuello">Cumple</button><input type="hidden" id="val-hcuello" value="Cumple"></div>
+        <div class="medicion-row"><label>Φ Int. Gollete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-int" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-int">Cumple</button><input type="hidden" id="val-phi-int" value="Cumple"></div>
+        <div class="medicion-row"><label>Φ Hilo Gollete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-hilo" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-hilo">Cumple</button><input type="hidden" id="val-phi-hilo" value="Cumple"></div>
+        <div class="medicion-row"><label>Φ Trinquete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-trinquete" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-trinquete">Cumple</button><input type="hidden" id="val-phi-trinquete" value="Cumple"></div>
+        <div class="medicion-row"><label>Rebalse</label><input type="number" step="0.1" inputmode="decimal" id="med-rebalse" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-rebalse">Cumple</button><input type="hidden" id="val-rebalse" value="Cumple"></div>
         <div class="medicion-row"><label>Caída Libre</label><input type="text" id="med-caida" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-caida">Cumple</button><input type="hidden" id="val-caida" value="Cumple"></div>
         
         <div class="form-group" style="margin-top:15px;">
@@ -164,6 +164,13 @@
       </div>
     </div>
 
+      <div id="view-analisis" class="app-view">
+      <div class="card-section">
+        <h3>Tendencia de Peso y Ciclo</h3>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 15px;">Muestra los últimos 10 registros del producto seleccionado.</p>
+        <canvas id="chartTendencia" style="width: 100%; height: 300px;"></canvas>
+      </div>
+    </div>
   </div>
 
   <div id="qr-modal" class="modal">

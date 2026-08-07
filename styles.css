@@ -94,6 +94,17 @@ body {
   padding: 0 10px;
 }
 
+.sync-banner {
+  background: var(--ind-blue-dark);
+  color: white;
+  padding: 8px 15px;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--slate-700);
+}
+
 .app-view {
   display: none;
 }

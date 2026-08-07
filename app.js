@@ -8,13 +8,10 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn
 let productosCache = [];
 let maquinasCache = [];
 let historialCache = [];
-let operariosCache = [
-  { id: "Boris Navarro", nombre: "Boris Navarro" },
-  { id: "Juan Pérez", nombre: "Juan Pérez" },
-  { id: "Carlos Soto", nombre: "Carlos Soto" }
-];
+let operariosCache = [];
 let html5QrCode = null;
 let currentDraftId = null; 
+let chartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   checkSession();
@@ -24,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
   setupCustomComboboxes();
   actualizarContadorBorradores();
+  checkSyncQueue();
 });
 
 function obtenerHoraSantiago() {
@@ -70,8 +68,9 @@ function setupNavigation() {
       const targetView = document.getElementById(tab.dataset.target);
       if (targetView) targetView.classList.add('active');
 
-      if (tab.dataset.target === 'view-historial') renderHistorialInspector();
+            if (tab.dataset.target === 'view-historial') renderHistorialInspector();
       if (tab.dataset.target === 'view-borradores') renderBorradores();
+      if (tab.dataset.target === 'view-analisis') renderChartTendencia();
     });
   });
 }
@@ -338,6 +337,7 @@ function setupEventListeners() {
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
+  document.getElementById('btn-sync-now').addEventListener('click', processSyncQueue);
 }
 
 function setupToggles() {
@@ -356,13 +356,145 @@ async function enviarAGoogleSheets(data) {
   data.inspector_calidad = sessionStorage.getItem('usuario_calidad'); 
   data.id_maquina = data.maquinaId; 
   data.id_producto = data.productoId;
+
+  if (!navigator.onLine) {
+    addToSyncQueue(data);
+    return true; 
+  }
+
   try { 
-    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) }); 
+    const response = await fetch(GOOGLE_SCRIPT_URL, { 
+      method: 'POST', 
+      mode: 'no-cors', 
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+      body: JSON.stringify(data) 
+    }); 
     return true; 
   } catch (err) { 
-    alert("Error al conectar con Drive."); 
-    return false; 
+    console.warn("Fallo de red, guardando en cola de sincronización.");
+    addToSyncQueue(data);
+    return true; 
   }
+}
+
+// --- GESTIÓN DE COLA DE SINCRONIZACIÓN (OFFLINE) ---
+function addToSyncQueue(data) {
+  let queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
+  queue.push({ id: Date.now(), data: data });
+  localStorage.setItem('sync_queue_calidad', JSON.stringify(queue));
+  updateSyncUI();
+}
+
+function updateSyncUI() {
+  const queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
+  const banner = document.getElementById('sync-status');
+  const countSpan = document.getElementById('sync-count');
+  if (queue.length > 0) {
+    banner.style.display = 'flex';
+    countSpan.innerText = queue.length;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+async function checkSyncQueue() {
+  updateSyncUI();
+  if (navigator.onLine) processSyncQueue();
+}
+
+async function processSyncQueue() {
+  let queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
+  if (queue.length === 0) return;
+
+  const btn = document.getElementById('btn-sync-now');
+  btn.disabled = true;
+  btn.innerText = "Sincronizando...";
+
+  let remainingQueue = [];
+  for (let item of queue) {
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, { 
+        method: 'POST', 
+        mode: 'no-cors', 
+        body: JSON.stringify(item.data) 
+      });
+    } catch (e) {
+      remainingQueue.push(item);
+    }
+  }
+
+  localStorage.setItem('sync_queue_calidad', JSON.stringify(remainingQueue));
+  updateSyncUI();
+  btn.disabled = false;
+  btn.innerText = "Sincronizar Ahora";
+  if (remainingQueue.length === 0) {
+    alert("✅ Todos los registros pendientes han sido sincronizados.");
+    loadCatalogData();
+  }
+}
+
+window.addEventListener('online', checkSyncQueue);
+
+// --- GRÁFICOS DE TENDENCIA ---
+function renderChartTendencia() {
+  const prodId = document.getElementById('select-producto').value;
+  if (!prodId) {
+    alert("Selecciona un producto en la pestaña Inspección para ver su análisis.");
+    return;
+  }
+
+  // Filtrar los últimos 10 registros de este producto en el historial
+  const historicoProd = historialCache
+    .filter(h => h.idProducto === prodId || h.producto === document.getElementById('input-search-producto').value)
+    .slice(-10);
+
+  if (historicoProd.length === 0) {
+    alert("No hay datos históricos suficientes para este producto.");
+    return;
+  }
+
+  const labels = historicoProd.map(h => h.fechaHora.split(' ')[1] || h.fechaHora); // Hora o Fecha
+  const pesos = historicoProd.map(h => parseFloat(h.peso_med) || 0);
+  const ciclos = historicoProd.map(h => parseFloat(h.ciclo_med) || 0);
+
+  const ctx = document.getElementById('chartTendencia').getContext('2d');
+  
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Peso (g)',
+          data: pesos,
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.2)',
+          yAxisID: 'y',
+          tension: 0.3
+        },
+        {
+          label: 'Ciclo (s)',
+          data: ciclos,
+          borderColor: '#fbbf24',
+          backgroundColor: 'rgba(251, 191, 36, 0.2)',
+          yAxisID: 'y1',
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { type: 'linear', display: true, position: 'left', grid: { color: '#334155' } },
+        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false } }
+      },
+      plugins: {
+        legend: { labels: { color: '#f8fafc' } }
+      }
+    }
+  });
 }
 
 function resetFormulario() {
@@ -376,7 +508,10 @@ function resetFormulario() {
 async function loadCatalogData() {
   try {
     const res = await fetch(GOOGLE_SCRIPT_URL); const data = await res.json();
-    maquinasCache = data.maquinas || []; productosCache = data.productos || []; historialCache = data.historial || [];
+    maquinasCache = data.maquinas || []; 
+    productosCache = data.productos || []; 
+    historialCache = data.historial || [];
+    operariosCache = data.operarios || []; 
     renderHistorialInspector();
   } catch (err) { console.error("Error API:", err); }
 }
