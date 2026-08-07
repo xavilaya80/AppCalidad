@@ -18,7 +18,7 @@
   --ng-red: #b91c1c;
 
   --radius-ind: 8px;
-  --shadow-ind: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-ind: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -91,17 +91,6 @@ body {
   padding: 0 10px;
 }
 
-.sync-banner {
-  background: var(--ind-blue-dark);
-  color: white;
-  padding: 8px 15px;
-  font-size: 0.8rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--slate-700);
-}
-
 .app-view {
   display: none;
 }
@@ -117,6 +106,7 @@ body {
   padding: 15px;
   margin-bottom: 15px;
   box-shadow: var(--shadow-ind);
+  overflow: visible !important; /* Importante para que el desplegable no quede cortado */
 }
 
 .card-section h3 {
@@ -168,32 +158,36 @@ body {
   padding: 10px;
 }
 
+/* COMBOBOX (LISTAS DESPLEGABLES CORREGIDAS Y VISIBLES) */
 .combobox-dropdown {
   display: none;
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--slate-900);
-  border: 1px solid var(--ind-blue);
+  background-color: #0f172a !important;
+  border: 2px solid var(--ind-blue);
   border-radius: 6px;
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
-  z-index: 999;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+  z-index: 99999 !important; /* Forzar que flote por encima de todo */
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  margin-top: 4px;
 }
 
 .combobox-item {
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
   border-bottom: 1px solid var(--slate-800);
-  font-size: 0.85rem;
-  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff !important;
+  background-color: #0f172a;
 }
 
 .combobox-item:hover {
-  background-color: var(--ind-blue);
-  color: white;
+  background-color: var(--ind-blue) !important;
+  color: white !important;
 }
 
 #specs-banner {
@@ -206,6 +200,7 @@ body {
   color: #e0f2fe;
 }
 
+/* FILAS DE MEDICIÓN (UNIFORMES Y ESTÉTICAS) */
 .medicion-row {
   display: flex;
   justify-content: space-between;
@@ -229,18 +224,23 @@ body {
 .medicion-row input[type="text"],
 .medicion-row input[type="number"] {
   flex: 1.2;
-  height: 36px;
-  padding: 0 8px;
+  height: 38px;
+  padding: 0 10px;
   border: 1px solid var(--slate-600);
   border-radius: 4px;
   font-size: 0.85rem;
-  background-color: var(--slate-800);
-  color: white;
+  font-weight: 600;
+  background-color: var(--slate-800) !important; /* Uniforme oscuro para todas */
+  color: white !important;
   outline: none;
 }
 
+.medicion-row input:focus {
+  border-color: var(--ind-blue);
+}
+
 .btn-toggle {
-  height: 36px;
+  height: 38px;
   min-width: 100px;
   border: none;
   border-radius: 4px;
