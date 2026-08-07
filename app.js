@@ -2,7 +2,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
 
-// ⚠️ REEMPLAZA ESTA URL POR LA DE TU SCRIPT DESPLEGADO
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
 
 let productosCache = [];
@@ -21,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
   setupCustomComboboxes();
   actualizarContadorBorradores();
-  checkSyncQueue();
 });
 
 function obtenerHoraSantiago() {
@@ -70,12 +68,10 @@ function setupNavigation() {
 
       if (tab.dataset.target === 'view-historial') renderHistorialInspector();
       if (tab.dataset.target === 'view-borradores') renderBorradores();
-      if (tab.dataset.target === 'view-analisis') renderChartTendencia();
     });
   });
 }
 
-// --- RECOLECCIÓN DE DATOS ---
 function recopilarDatosFormulario() {
   return {
     maquinaId: document.getElementById('select-maquina').value,
@@ -103,7 +99,6 @@ function recopilarDatosFormulario() {
   };
 }
 
-// --- GESTIÓN DE BORRADORES ---
 function guardarComoBorrador() {
   const data = recopilarDatosFormulario();
   if (!data.maquinaId || !data.productoId) { alert("⚠️ Selecciona al menos Máquina y Producto para guardar un borrador."); return; }
@@ -194,7 +189,7 @@ function actualizarContadorBorradores() {
   document.getElementById('contador-borradores').innerText = misBorradores;
 }
 
-// --- COMBOBOXES INTELIGENTES CORREGIDOS (Con soporte dinámico para operarios) ---
+// --- COMBOBOXES ROBUSTOS Y VISIBLES ---
 function setupCustomComboboxes() {
   const inputs = [
     { in: 'input-search-maquina', drop: 'dropdown-maquina', dataObj: () => maquinasCache, type: 'maquina' },
@@ -209,17 +204,14 @@ function setupCustomComboboxes() {
 
     const abrirMenu = (e) => { 
       if(e) e.stopPropagation(); 
+      // Cerrar otros dropdowns abiertos
+      document.querySelectorAll('.combobox-dropdown').forEach(d => { if(d !== dropEl) d.style.display = 'none'; });
       renderComboboxOptions(inputEl, dropEl, el.dataObj(), el.type); 
     };
 
     inputEl.addEventListener('focus', abrirMenu); 
     inputEl.addEventListener('click', abrirMenu); 
-    inputEl.addEventListener('input', () => {
-      if(el.type === 'operario') {
-        document.getElementById('select-operario').value = inputEl.value;
-      }
-      abrirMenu();
-    });
+    inputEl.addEventListener('input', abrirMenu);
   });
 
   document.addEventListener('click', (e) => {
@@ -238,8 +230,8 @@ function renderComboboxOptions(inputEl, dropEl, data, tipo) {
     return val.includes(filter);
   });
 
-  if (matches.length === 0 && tipo !== 'operario') { 
-    dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8;">Sin coincidencias</div>`; 
+  if (matches.length === 0) { 
+    dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8; cursor:default;">Sin coincidencias</div>`; 
   } else {
     matches.forEach(item => {
       const div = document.createElement('div'); 
@@ -278,7 +270,6 @@ function actualizarFichaProducto(prodId) {
   } else { banner.style.display = 'none'; }
 }
 
-// --- EVENTOS PRINCIPALES Y VALIDACIÓN ESTRICTA ---
 function setupEventListeners() {
   document.getElementById('btn-login').addEventListener('click', () => {
     const user = document.getElementById('login-inspector').value; const pin = document.getElementById('login-pin').value;
@@ -348,7 +339,6 @@ function setupEventListeners() {
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
   document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
-  document.getElementById('btn-sync-now').addEventListener('click', processSyncQueue);
 }
 
 function setupToggles() {
@@ -368,11 +358,6 @@ async function enviarAGoogleSheets(data) {
   data.id_maquina = data.maquinaId; 
   data.id_producto = data.productoId;
 
-  if (!navigator.onLine) {
-    addToSyncQueue(data);
-    return true; 
-  }
-
   try { 
     await fetch(GOOGLE_SCRIPT_URL, { 
       method: 'POST', 
@@ -382,126 +367,9 @@ async function enviarAGoogleSheets(data) {
     }); 
     return true; 
   } catch (err) { 
-    addToSyncQueue(data);
-    return true; 
+    alert("Error al conectar con Drive."); 
+    return false; 
   }
-}
-
-function addToSyncQueue(data) {
-  let queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
-  queue.push({ id: Date.now(), data: data });
-  localStorage.setItem('sync_queue_calidad', JSON.stringify(queue));
-  updateSyncUI();
-}
-
-function updateSyncUI() {
-  const queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
-  const banner = document.getElementById('sync-status');
-  const countSpan = document.getElementById('sync-count');
-  if (banner && countSpan) {
-    if (queue.length > 0) {
-      banner.style.display = 'flex';
-      countSpan.innerText = queue.length;
-    } else {
-      banner.style.display = 'none';
-    }
-  }
-}
-
-async function checkSyncQueue() {
-  updateSyncUI();
-  if (navigator.onLine) processSyncQueue();
-}
-
-async function processSyncQueue() {
-  let queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
-  if (queue.length === 0) return;
-
-  const btn = document.getElementById('btn-sync-now');
-  if(btn) { btn.disabled = true; btn.innerText = "Sincronizando..."; }
-
-  let remainingQueue = [];
-  for (let item of queue) {
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, { 
-        method: 'POST', 
-        mode: 'no-cors', 
-        body: JSON.stringify(item.data) 
-      });
-    } catch (e) {
-      remainingQueue.push(item);
-    }
-  }
-
-  localStorage.setItem('sync_queue_calidad', JSON.stringify(remainingQueue));
-  updateSyncUI();
-  if(btn) { btn.disabled = false; btn.innerText = "Sincronizar Ahora"; }
-  if (remainingQueue.length === 0) {
-    alert("✅ Todos los registros pendientes han sido sincronizados.");
-    loadCatalogData();
-  }
-}
-
-window.addEventListener('online', checkSyncQueue);
-
-function renderChartTendencia() {
-  const prodId = document.getElementById('select-producto').value;
-  if (!prodId) {
-    alert("Selecciona un producto en la pestaña Inspección para ver su análisis.");
-    return;
-  }
-
-  const historicoProd = historialCache
-    .filter(h => h.idProducto === prodId || h.producto === document.getElementById('input-search-producto').value)
-    .slice(-10);
-
-  if (historicoProd.length === 0) {
-    alert("No hay datos históricos suficientes para este producto.");
-    return;
-  }
-
-  const labels = historicoProd.map(h => h.fechaHora.split(' ')[1] || h.fechaHora);
-  const pesos = historicoProd.map(h => parseFloat(h.peso_med) || 0);
-  const ciclos = historicoProd.map(h => parseFloat(h.ciclo_med) || 0);
-
-  const ctx = document.getElementById('chartTendencia').getContext('2d');
-  
-  if (chartInstance) chartInstance.destroy();
-
-  chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Peso (g)',
-          data: pesos,
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56, 189, 248, 0.2)',
-          yAxisID: 'y',
-          tension: 0.3
-        },
-        {
-          label: 'Ciclo (s)',
-          data: ciclos,
-          borderColor: '#fbbf24',
-          backgroundColor: 'rgba(251, 191, 36, 0.2)',
-          yAxisID: 'y1',
-          tension: 0.3
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: { type: 'linear', display: true, position: 'left', grid: { color: '#334155' } },
-        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false } }
-      },
-      plugins: {
-        legend: { labels: { color: '#f8fafc' } }
-      }
-    }
-  });
 }
 
 function resetFormulario() {
@@ -516,8 +384,8 @@ async function loadCatalogData() {
     const res = await fetch(GOOGLE_SCRIPT_URL); const data = await res.json();
     maquinasCache = data.maquinas || []; 
     productosCache = data.productos || []; 
-    historialCache = data.historial || [];
     operariosCache = data.operarios || []; 
+    historialCache = data.historial || [];
     renderHistorialInspector();
   } catch (err) { console.error("Error API:", err); }
 }
