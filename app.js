@@ -68,7 +68,7 @@ function setupNavigation() {
       const targetView = document.getElementById(tab.dataset.target);
       if (targetView) targetView.classList.add('active');
 
-            if (tab.dataset.target === 'view-historial') renderHistorialInspector();
+      if (tab.dataset.target === 'view-historial') renderHistorialInspector();
       if (tab.dataset.target === 'view-borradores') renderBorradores();
       if (tab.dataset.target === 'view-analisis') renderChartTendencia();
     });
@@ -194,7 +194,7 @@ function actualizarContadorBorradores() {
   document.getElementById('contador-borradores').innerText = misBorradores;
 }
 
-// --- COMBOBOXES INTELIGENTES (Máquina, Producto y Operario) ---
+// --- COMBOBOXES INTELIGENTES CORREGIDOS (Con soporte dinámico para operarios) ---
 function setupCustomComboboxes() {
   const inputs = [
     { in: 'input-search-maquina', drop: 'dropdown-maquina', dataObj: () => maquinasCache, type: 'maquina' },
@@ -232,23 +232,35 @@ function setupCustomComboboxes() {
 function renderComboboxOptions(inputEl, dropEl, data, tipo) {
   const filter = inputEl.value.toLowerCase().trim();
   dropEl.innerHTML = '';
-  const matches = data.filter(item => (item.id || '').toLowerCase().includes(filter) || (item.nombre || '').toLowerCase().includes(filter));
+  
+  const matches = data.filter(item => {
+    const val = (item.nombre || item.id || '').toLowerCase();
+    return val.includes(filter);
+  });
 
   if (matches.length === 0 && tipo !== 'operario') { 
     dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8;">Sin coincidencias</div>`; 
   } else {
     matches.forEach(item => {
-      const div = document.createElement('div'); div.className = 'combobox-item';
-      const labelText = (item.nombre && item.nombre !== item.id) ? `${item.nombre} (${item.id})` : item.id;
+      const div = document.createElement('div'); 
+      div.className = 'combobox-item';
+      
+      const labelText = item.nombre || item.id;
       div.innerText = labelText;
+      
       div.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault(); 
+        e.stopPropagation();
         inputEl.value = labelText; 
-        if(tipo !== 'operario') {
+        
+        if(tipo === 'operario') {
+          document.getElementById('select-operario').value = labelText;
+        } else {
           document.getElementById(`select-${tipo}`).value = item.id;
+          if (tipo === 'producto') actualizarFichaProducto(item.id);
         }
+        
         dropEl.style.display = 'none';
-        if (tipo === 'producto') actualizarFichaProducto(item.id);
       });
       dropEl.appendChild(div);
     });
@@ -278,7 +290,6 @@ function setupEventListeners() {
   document.getElementById('btn-logout').addEventListener('click', () => { sessionStorage.removeItem('usuario_calidad'); checkSession(); });
   document.getElementById('btn-guardar-borrador').addEventListener('click', guardarComoBorrador);
 
-  // BOTÓN GUARDAR REGISTRO FINAL (CON VALIDACIÓN ESTRICTA DE LAS 13 MEDICIONES)
   document.getElementById('btn-guardar-registro').addEventListener('click', async () => {
     const dataForm = recopilarDatosFormulario();
     if (!dataForm.maquinaId || !dataForm.productoId || !dataForm.operario.trim()) { 
@@ -363,7 +374,7 @@ async function enviarAGoogleSheets(data) {
   }
 
   try { 
-    const response = await fetch(GOOGLE_SCRIPT_URL, { 
+    await fetch(GOOGLE_SCRIPT_URL, { 
       method: 'POST', 
       mode: 'no-cors', 
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
@@ -371,13 +382,11 @@ async function enviarAGoogleSheets(data) {
     }); 
     return true; 
   } catch (err) { 
-    console.warn("Fallo de red, guardando en cola de sincronización.");
     addToSyncQueue(data);
     return true; 
   }
 }
 
-// --- GESTIÓN DE COLA DE SINCRONIZACIÓN (OFFLINE) ---
 function addToSyncQueue(data) {
   let queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
   queue.push({ id: Date.now(), data: data });
@@ -389,11 +398,13 @@ function updateSyncUI() {
   const queue = JSON.parse(localStorage.getItem('sync_queue_calidad')) || [];
   const banner = document.getElementById('sync-status');
   const countSpan = document.getElementById('sync-count');
-  if (queue.length > 0) {
-    banner.style.display = 'flex';
-    countSpan.innerText = queue.length;
-  } else {
-    banner.style.display = 'none';
+  if (banner && countSpan) {
+    if (queue.length > 0) {
+      banner.style.display = 'flex';
+      countSpan.innerText = queue.length;
+    } else {
+      banner.style.display = 'none';
+    }
   }
 }
 
@@ -407,8 +418,7 @@ async function processSyncQueue() {
   if (queue.length === 0) return;
 
   const btn = document.getElementById('btn-sync-now');
-  btn.disabled = true;
-  btn.innerText = "Sincronizando...";
+  if(btn) { btn.disabled = true; btn.innerText = "Sincronizando..."; }
 
   let remainingQueue = [];
   for (let item of queue) {
@@ -425,8 +435,7 @@ async function processSyncQueue() {
 
   localStorage.setItem('sync_queue_calidad', JSON.stringify(remainingQueue));
   updateSyncUI();
-  btn.disabled = false;
-  btn.innerText = "Sincronizar Ahora";
+  if(btn) { btn.disabled = false; btn.innerText = "Sincronizar Ahora"; }
   if (remainingQueue.length === 0) {
     alert("✅ Todos los registros pendientes han sido sincronizados.");
     loadCatalogData();
@@ -435,7 +444,6 @@ async function processSyncQueue() {
 
 window.addEventListener('online', checkSyncQueue);
 
-// --- GRÁFICOS DE TENDENCIA ---
 function renderChartTendencia() {
   const prodId = document.getElementById('select-producto').value;
   if (!prodId) {
@@ -443,7 +451,6 @@ function renderChartTendencia() {
     return;
   }
 
-  // Filtrar los últimos 10 registros de este producto en el historial
   const historicoProd = historialCache
     .filter(h => h.idProducto === prodId || h.producto === document.getElementById('input-search-producto').value)
     .slice(-10);
@@ -453,7 +460,7 @@ function renderChartTendencia() {
     return;
   }
 
-  const labels = historicoProd.map(h => h.fechaHora.split(' ')[1] || h.fechaHora); // Hora o Fecha
+  const labels = historicoProd.map(h => h.fechaHora.split(' ')[1] || h.fechaHora);
   const pesos = historicoProd.map(h => parseFloat(h.peso_med) || 0);
   const ciclos = historicoProd.map(h => parseFloat(h.ciclo_med) || 0);
 
@@ -504,7 +511,6 @@ function resetFormulario() {
   document.querySelectorAll('.btn-toggle').forEach(btn => { btn.innerText = 'Cumple'; btn.className = 'btn-toggle active-cumple'; const t = document.getElementById(btn.dataset.target); if(t) t.value = 'Cumple'; });
 }
 
-// --- DATOS EXTERNOS ---
 async function loadCatalogData() {
   try {
     const res = await fetch(GOOGLE_SCRIPT_URL); const data = await res.json();
