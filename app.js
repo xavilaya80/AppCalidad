@@ -10,7 +10,6 @@ let historialCache = [];
 let operariosCache = [];
 let html5QrCode = null;
 let currentDraftId = null; 
-let chartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   checkSession();
@@ -189,75 +188,71 @@ function actualizarContadorBorradores() {
   document.getElementById('contador-borradores').innerText = misBorradores;
 }
 
-// --- COMBOBOXES ROBUSTOS Y VISIBLES ---
+// --- COMBOBOXES CORREGIDOS Y ACTIVOS ---
 function setupCustomComboboxes() {
-  const inputs = [
-    { in: 'input-search-maquina', drop: 'dropdown-maquina', dataObj: () => maquinasCache, type: 'maquina' },
-    { in: 'input-search-producto', drop: 'dropdown-producto', dataObj: () => productosCache, type: 'producto' },
-    { in: 'input-search-operario', drop: 'dropdown-operario', dataObj: () => operariosCache, type: 'operario' }
+  const configs = [
+    { inputId: 'input-search-maquina', dropId: 'dropdown-maquina', getData: () => maquinasCache, type: 'maquina' },
+    { inputId: 'input-search-producto', dropId: 'dropdown-producto', getData: () => productosCache, type: 'producto' },
+    { inputId: 'input-search-operario', dropId: 'dropdown-operario', getData: () => operariosCache, type: 'operario' }
   ];
 
-  inputs.forEach(el => {
-    const inputEl = document.getElementById(el.in); 
-    const dropEl = document.getElementById(el.drop);
+  configs.forEach(cfg => {
+    const inputEl = document.getElementById(cfg.inputId);
+    const dropEl = document.getElementById(cfg.dropId);
     if (!inputEl || !dropEl) return;
 
-    const abrirMenu = (e) => { 
-      if(e) e.stopPropagation(); 
-      // Cerrar otros dropdowns abiertos
-      document.querySelectorAll('.combobox-dropdown').forEach(d => { if(d !== dropEl) d.style.display = 'none'; });
-      renderComboboxOptions(inputEl, dropEl, el.dataObj(), el.type); 
+    const mostrarOpciones = () => {
+      const filtro = inputEl.value.toLowerCase().trim();
+      const datos = cfg.getData();
+      dropEl.innerHTML = '';
+
+      const filtrados = datos.filter(item => {
+        const texto = (item.nombre || item.id || '').toLowerCase();
+        return texto.includes(filtro);
+      });
+
+      if (filtrados.length === 0) {
+        dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8; cursor:default;">Sin coincidencias</div>`;
+      } else {
+        filtrados.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'combobox-item';
+          const textoItem = item.nombre || item.id;
+          div.innerText = textoItem;
+
+          div.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputEl.value = textoItem;
+
+            if (cfg.type === 'operario') {
+              document.getElementById('select-operario').value = textoItem;
+            } else {
+              document.getElementById(`select-${cfg.type}`).value = item.id;
+              if (cfg.type === 'producto') actualizarFichaProducto(item.id);
+            }
+
+            dropEl.style.display = 'none';
+          });
+          dropEl.appendChild(div);
+        });
+      }
+      dropEl.style.display = 'block';
     };
 
-    inputEl.addEventListener('focus', abrirMenu); 
-    inputEl.addEventListener('click', abrirMenu); 
-    inputEl.addEventListener('input', abrirMenu);
+    inputEl.addEventListener('focus', mostrarOpciones);
+    inputEl.addEventListener('click', mostrarOpciones);
+    inputEl.addEventListener('input', mostrarOpciones);
   });
 
+  // Cerrar los desplegables al hacer clic fuera
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.form-group')) { 
-      document.querySelectorAll('.combobox-dropdown').forEach(d => d.style.display = 'none'); 
+    if (!e.target.closest('.form-group')) {
+      document.querySelectorAll('.combobox-dropdown').forEach(d => {
+        d.style.display = 'none';
+      });
     }
   });
-}
-
-function renderComboboxOptions(inputEl, dropEl, data, tipo) {
-  const filter = inputEl.value.toLowerCase().trim();
-  dropEl.innerHTML = '';
-  
-  const matches = data.filter(item => {
-    const val = (item.nombre || item.id || '').toLowerCase();
-    return val.includes(filter);
-  });
-
-  if (matches.length === 0) { 
-    dropEl.innerHTML = `<div class="combobox-item" style="color:#94a3b8; cursor:default;">Sin coincidencias</div>`; 
-  } else {
-    matches.forEach(item => {
-      const div = document.createElement('div'); 
-      div.className = 'combobox-item';
-      
-      const labelText = item.nombre || item.id;
-      div.innerText = labelText;
-      
-      div.addEventListener('click', (e) => {
-        e.preventDefault(); 
-        e.stopPropagation();
-        inputEl.value = labelText; 
-        
-        if(tipo === 'operario') {
-          document.getElementById('select-operario').value = labelText;
-        } else {
-          document.getElementById(`select-${tipo}`).value = item.id;
-          if (tipo === 'producto') actualizarFichaProducto(item.id);
-        }
-        
-        dropEl.style.display = 'none';
-      });
-      dropEl.appendChild(div);
-    });
-  }
-  dropEl.style.display = 'block';
 }
 
 function actualizarFichaProducto(prodId) {
