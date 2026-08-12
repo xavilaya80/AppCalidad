@@ -426,7 +426,7 @@ function setupEventListeners() {
       await loadCatalogData();
     }
 
-    btn.disabled = false; btn.innerText = "🚀 Iniciar Ronda en Máquina";
+    btn.disabled = false; btn.innerText = "🧪 Enviar a Laboratorio";
   });
 
   document.getElementById('btn-cerrar-ronda').addEventListener('click', async () => {
