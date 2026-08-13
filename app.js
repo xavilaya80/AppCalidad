@@ -347,9 +347,55 @@ function setupCustomComboboxes() {
   });
 }
 
+function normalizarClaveCatalogo(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function buscarProductoCatalogo(productoRef) {
+  const ref = normalizarClaveCatalogo(productoRef);
+  if (!ref) return null;
+  return productosCache.find(p =>
+    normalizarClaveCatalogo(p.id) === ref ||
+    normalizarClaveCatalogo(p.nombre) === ref
+  );
+}
+
+function valorSpec(valor) {
+  return valor === undefined || valor === null || String(valor).trim() === '' ? '-' : String(valor);
+}
+
+function formatearSpecsProducto(producto) {
+  if (!producto) return 'No encontradas en catálogo para este producto.';
+  const specs = [
+    ['Color', producto.color],
+    ['Peso', producto.peso],
+    ['Ciclo', producto.ciclo],
+    ['Espesor', producto.espesor],
+    ['Calce', producto.calce],
+    ['Filtración', producto.filtracion],
+    ['Probador', producto.probador],
+    ['H Cuello', producto.hcuello],
+    ['Φ Int.', producto.diametroInterior],
+    ['Φ Hilo', producto.diametroHilo],
+    ['Φ Trinquete', producto.diametroTrinquete],
+    ['Rebalse', producto.rebalse],
+    ['Caída Libre', producto.caida]
+  ].filter(item => valorSpec(item[1]) !== '-');
+
+  if (specs.length === 0) return 'Sin especificaciones cargadas en catálogo.';
+  return specs.map(item => `${item[0]}: ${valorSpec(item[1])}`).join(' | ');
+}
+
 function actualizarFichaProducto(prodId) {
-  const selected = productosCache.find(p => p.id === prodId);
+  const selected = buscarProductoCatalogo(prodId);
   const banner = document.getElementById('specs-banner');
+  const specsLaboratorio = document.getElementById('ronda-specs-detalle');
+  if (specsLaboratorio) specsLaboratorio.innerText = formatearSpecsProducto(selected);
   if (selected) {
     document.getElementById('spec-color').innerText = selected.color || '-'; document.getElementById('spec-peso').innerText = selected.peso || '-';
     document.getElementById('spec-ciclo').innerText = selected.ciclo || '-'; document.getElementById('spec-diametros').innerText = `${selected.diametroHilo || '-'} / ${selected.diametroInterior || '-'}`;

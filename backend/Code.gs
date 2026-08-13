@@ -53,6 +53,35 @@ var MEDICIONES_TERRENO = ["color", "ciclo", "peso", "probador"];
 // Completadas por Laboratorio al cerrar la ronda (llegan en el payload de cerrarRonda)
 var MEDICIONES_LAB = MEDICIONES_ORDEN.filter(function (m) { return MEDICIONES_TERRENO.indexOf(m) === -1; });
 
+function normalizarEncabezadoProducto(valor) {
+  return String(valor || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[φΦøØ]/g, "phi")
+    .replace(/[°º]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function columnaProductoPorAlias(encabezados, aliases) {
+  for (var i = 0; i < encabezados.length; i++) {
+    var encabezado = normalizarEncabezadoProducto(encabezados[i]);
+    if (!encabezado) continue;
+    for (var a = 0; a < aliases.length; a++) {
+      var alias = normalizarEncabezadoProducto(aliases[a]);
+      if (alias && encabezado.indexOf(alias) !== -1) return i;
+    }
+  }
+  return -1;
+}
+
+function valorProductoPorAlias(fila, encabezados, aliases, fallbackIndex) {
+  var idx = columnaProductoPorAlias(encabezados, aliases);
+  if (idx === -1 && fallbackIndex !== undefined && fallbackIndex !== null) idx = fallbackIndex;
+  return idx >= 0 ? fila[idx] : "";
+}
+
 function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -70,16 +99,25 @@ function doGet(e) {
   var sheetProd = ss.getSheetByName("Productos_Specs");
   var dataProd = sheetProd ? sheetProd.getDataRange().getValues() : [];
   var productos = [];
+  var encabezadosProd = dataProd.length > 0 ? dataProd[0] : [];
   for (var j = 1; j < dataProd.length; j++) {
     if (dataProd[j][0]) {
       productos.push({
         id: String(dataProd[j][0]),
         nombre: String(dataProd[j][1] || dataProd[j][0]),
-        peso: dataProd[j][2],
-        diametroInterior: dataProd[j][4],
-        color: dataProd[j][6],
-        ciclo: dataProd[j][7],
-        diametroHilo: dataProd[j][8]
+        peso: valorProductoPorAlias(dataProd[j], encabezadosProd, ["peso"], 2),
+        espesor: valorProductoPorAlias(dataProd[j], encabezadosProd, ["espesor", "espesor pared", "espesor de pared"], null),
+        diametroInterior: valorProductoPorAlias(dataProd[j], encabezadosProd, ["diametro interior", "phi int", "int gollete", "interior gollete"], 4),
+        color: valorProductoPorAlias(dataProd[j], encabezadosProd, ["color", "apariencia"], 6),
+        ciclo: valorProductoPorAlias(dataProd[j], encabezadosProd, ["ciclo", "ciclo soplado", "ciclo inyeccion"], 7),
+        diametroHilo: valorProductoPorAlias(dataProd[j], encabezadosProd, ["diametro hilo", "phi hilo", "hilo gollete"], 8),
+        calce: valorProductoPorAlias(dataProd[j], encabezadosProd, ["calce", "tapa"], null),
+        filtracion: valorProductoPorAlias(dataProd[j], encabezadosProd, ["filtracion", "hermeticidad"], null),
+        probador: valorProductoPorAlias(dataProd[j], encabezadosProd, ["probador"], null),
+        hcuello: valorProductoPorAlias(dataProd[j], encabezadosProd, ["h cuello", "altura cuello"], null),
+        diametroTrinquete: valorProductoPorAlias(dataProd[j], encabezadosProd, ["diametro trinquete", "phi trinquete", "trinquete"], null),
+        rebalse: valorProductoPorAlias(dataProd[j], encabezadosProd, ["rebalse", "capacidad"], null),
+        caida: valorProductoPorAlias(dataProd[j], encabezadosProd, ["caida", "caida libre"], null)
       });
     }
   }
