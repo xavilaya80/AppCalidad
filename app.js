@@ -366,7 +366,9 @@ function buscarProductoCatalogo(productoRef) {
 }
 
 function valorSpec(valor) {
-  return valor === undefined || valor === null || String(valor).trim() === '' ? '-' : String(valor);
+  if (valor === undefined || valor === null) return '-';
+  const texto = String(valor).trim();
+  return texto === '' ? '-' : texto;
 }
 
 function formatearSpecsProducto(producto) {
@@ -384,10 +386,10 @@ function formatearSpecsProducto(producto) {
     ['Φ Hilo', producto.diametroHilo],
     ['Φ Trinquete', producto.diametroTrinquete],
     ['Rebalse', producto.rebalse],
-    ['Caída Libre', producto.caida]
-  ].filter(item => valorSpec(item[1]) !== '-');
+    ['Caída Libre', producto.caida],
+    ['Embalaje', producto.embalaje]
+  ];
 
-  if (specs.length === 0) return 'Sin especificaciones cargadas en catálogo.';
   return specs.map(item => `${item[0]}: ${valorSpec(item[1])}`).join(' | ');
 }
 
@@ -397,8 +399,8 @@ function actualizarFichaProducto(prodId) {
   const specsLaboratorio = document.getElementById('ronda-specs-detalle');
   if (specsLaboratorio) specsLaboratorio.innerText = formatearSpecsProducto(selected);
   if (selected) {
-    document.getElementById('spec-color').innerText = selected.color || '-'; document.getElementById('spec-peso').innerText = selected.peso || '-';
-    document.getElementById('spec-ciclo').innerText = selected.ciclo || '-'; document.getElementById('spec-diametros').innerText = `${selected.diametroHilo || '-'} / ${selected.diametroInterior || '-'}`;
+    const bannerDetalle = document.getElementById('specs-banner-detalle');
+    if (bannerDetalle) bannerDetalle.innerText = formatearSpecsProducto(selected);
     banner.style.display = 'block';
   } else { banner.style.display = 'none'; }
 }
@@ -517,7 +519,7 @@ function setupEventListeners() {
       document.querySelector(`.nav-tab[data-target="${siguienteTab}"]`).click();
     }
 
-    btn.disabled = false; btn.innerText = "✅ Cerrar Ronda en Laboratorio";
+    btn.disabled = false; btn.innerText = "✅ Registro Completado";
   });
 
   document.getElementById('btn-cancelar-ronda').addEventListener('click', () => {
