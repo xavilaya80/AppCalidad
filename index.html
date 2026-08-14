@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>App Control de Calidad</title>
   
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" type="text/javascript"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" type="text/javascript"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+  <!-- MODAL LOGIN CON SELECCIÓN DE ROL -->
   <div id="login-modal" class="modal">
     <div class="modal-content">
       <h2>Iniciar Sesión</h2>
@@ -26,19 +27,20 @@
       <div class="form-group">
         <label>Rol en este turno:</label>
         <select id="login-rol">
-          <option value="Terreno">Terreno (ronda en máquina)</option>
-          <option value="Laboratorio">Laboratorio (ensayos y cierre)</option>
+          <option value="Terreno">📋 Terreno (Ronda en máquina)</option>
+          <option value="Laboratorio">🧪 Laboratorio (Ensayos y cierre)</option>
         </select>
       </div>
       <div class="form-group">
         <label>PIN de Seguridad:</label>
         <input type="password" id="login-pin" placeholder="Ingrese PIN">
       </div>
-      <p id="login-error"></p>
-      <button id="btn-login" class="btn btn-primary">Entrar</button>
+      <p id="login-error" style="color: #f87171; font-size: 0.85rem;"></p>
+      <button id="btn-login" class="btn btn-primary" style="width: 100%;">Entrar</button>
     </div>
   </div>
 
+  <!-- APLICACIÓN PRINCIPAL -->
   <div id="app-content" style="display: none;">
     
     <div class="header">
@@ -46,8 +48,7 @@
         <h2>Control de Calidad</h2>
         <span id="user-display"></span> |
         <span id="turno-header-badge"></span> |
-        <span id="rol-header-badge"></span> |
-        <span id="connection-status-badge" style="font-weight: bold; transition: all 0.3s ease;">🟢 En Línea</span>
+        <span id="rol-header-badge" style="color: #38bdf8; font-weight: bold;"></span>
       </div>
       <div>
         <button id="btn-cerrar-turno" class="btn btn-danger">Cerrar Turno</button>
@@ -62,28 +63,55 @@
       <button class="nav-tab" data-target="view-analisis">📊 Análisis</button>
     </div>
 
+    <!-- PESTAÑA PRINCIPAL DE INSPECCIÓN -->
     <div id="view-nueva" class="app-view active">
       <input type="hidden" id="input-turno">
 
       <p id="msg-seleccionar-pendiente" style="display:none; text-align:center; padding: 20px; color:#94a3b8;">
-        Ve a la pestaña "🧪 Pendientes Laboratorio" y toca "Completar" en la ronda que vas a ensayar.
+        Ve a la pestaña <strong>"🧪 Pendientes Laboratorio"</strong> y toca <strong>"Completar"</strong> en la ronda que vas a ensayar.
       </p>
 
-      <div id="ronda-info-banner" style="display:none;">
-        <strong>Ronda en curso:</strong><br>
-        Máquina: <span id="ronda-info-maquina"></span> | Producto: <span id="ronda-info-producto"></span> |
-        Operario: <span id="ronda-info-operario"></span> | Cavidad: <span id="ronda-info-cavidad"></span><br>
-        Lote MP: <span id="ronda-info-lotemp"></span> | Lote BXA: <span id="ronda-info-lotebxa"></span> |
-        Inspector Terreno: <span id="ronda-info-inspector"></span><br>
-        <strong>Chequeo de Terreno:</strong>
-        Color: <span id="ronda-info-color"></span> | Ciclo: <span id="ronda-info-ciclo"></span> |
-        Peso: <span id="ronda-info-peso"></span> | Probador: <span id="ronda-info-probador"></span><br>
-        <strong>Especificaciones Técnicas:</strong>
-        <span id="ronda-specs-detalle">No disponibles.</span>
+      <!-- RESUMEN DE TERRENO VISIBLE EN LABORATORIO -->
+      <div id="ronda-info-banner" style="display:none; background:#1e293b; border: 1px solid #38bdf8; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        <h4 style="margin: 0 0 8px 0; color: #38bdf8;">📌 Datos de Terreno Registrados:</h4>
+        <div style="font-size: 0.9rem; line-height: 1.4;">
+          <strong>Máquina:</strong> <span id="ronda-info-maquina"></span> | 
+          <strong>Producto:</strong> <span id="ronda-info-producto"></span> | 
+          <strong>Operario:</strong> <span id="ronda-info-operario"></span> | 
+          <strong>Cavidad:</strong> <span id="ronda-info-cavidad"></span><br>
+          <strong>Lote MP:</strong> <span id="ronda-info-lotemp"></span> | 
+          <strong>Lote BXA:</strong> <span id="ronda-info-lotebxa"></span> | 
+          <strong>Insp. Terreno:</strong> <span id="ronda-info-inspector"></span>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 8px 0;">
+        <div style="font-size: 0.9rem; color: #e2e8f0;">
+          <strong>Chequeo en Máquina:</strong><br>
+          • Color: <span id="ronda-info-color" style="color:#38bdf8; font-weight:bold;"></span><br>
+          • Ciclo: <span id="ronda-info-ciclo" style="color:#38bdf8; font-weight:bold;"></span><br>
+          • Peso: <span id="ronda-info-peso" style="color:#38bdf8; font-weight:bold;"></span><br>
+          • Probador: <span id="ronda-info-probador" style="color:#38bdf8; font-weight:bold;"></span>
+        </div>
       </div>
 
+      <!-- FICHA COMPLETA DE ESPECIFICACIONES TÉCNICAS (TERRENO Y LABORATORIO) -->
+      <div id="specs-banner" style="display: none; background:#0f172a; border-left: 4px solid #10b981; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+        <h4 style="margin:0 0 6px 0; color:#10b981;">📋 Tolerancias y Especificaciones del Producto:</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 0.85rem;">
+          <div><strong>Peso Nominal:</strong> <span id="spec-peso">-</span></div>
+          <div><strong>Ciclo:</strong> <span id="spec-ciclo">-</span></div>
+          <div><strong>Color:</strong> <span id="spec-color">-</span></div>
+          <div><strong>Espesor:</strong> <span id="spec-espesor">-</span></div>
+          <div><strong>H Cuello:</strong> <span id="spec-hcuello">-</span></div>
+          <div><strong>Ø Int. Gollete:</strong> <span id="spec-diam-int">-</span></div>
+          <div><strong>Ø Hilo Gollete:</strong> <span id="spec-diam-hilo">-</span></div>
+          <div><strong>Ø Trinquete:</strong> <span id="spec-diam-trinquete">-</span></div>
+          <div><strong>Capacidad Rebalse:</strong> <span id="spec-rebalse">-</span></div>
+        </div>
+      </div>
+
+      <!-- FASE 1: IDENTIFICACIÓN Y CHEQUEO EN MÁQUINA (TERRENO) -->
       <div class="card-section" id="card-identificacion">
-        <h3>1. Identificación</h3>
+        <h3>1. Identificación Terreno</h3>
 
         <div class="form-group">
           <label>Máquina:</label>
@@ -100,11 +128,6 @@
           <input type="text" id="input-search-producto" placeholder="Buscar producto..." autocomplete="off">
           <input type="hidden" id="select-producto">
           <div id="dropdown-producto" class="combobox-dropdown"></div>
-        </div>
-
-        <div id="specs-banner" style="display: none;">
-          <strong>Tolerancias del Producto:</strong><br>
-          Color: <span id="spec-color"></span> | Peso: <span id="spec-peso"></span> | Ciclo: <span id="spec-ciclo"></span> | Diámetros (Hilo/Int): <span id="spec-diametros"></span>
         </div>
 
         <div class="form-group">
@@ -125,12 +148,13 @@
         <div class="medicion-row"><label>Probador</label><input type="text" id="med-probador" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-probador">Cumple</button><input type="hidden" id="val-probador" value="Cumple"></div>
       </div>
 
+      <!-- FASE 2: MEDICIONES DE LABORATORIO (OCULTAS INICIALMENTE) -->
       <div class="card-section" id="card-mediciones">
-        <h3>2. Mediciones (Obligatorias para Cerrar la Ronda en Laboratorio)</h3>
+        <h3>2. Mediciones de Laboratorio (Completar Registro)</h3>
         <div class="medicion-row"><label>Espesor Pared</label><input type="number" step="0.01" inputmode="decimal" id="med-espesor" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-espesor">Cumple</button><input type="hidden" id="val-espesor" value="Cumple"></div>
         <div class="medicion-row"><label>Calce Tapa</label><input type="text" id="med-calce" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-calce">Cumple</button><input type="hidden" id="val-calce" value="Cumple"></div>
         <div class="medicion-row"><label>Filtración</label><input type="text" id="med-filtracion" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-filtracion">Cumple</button><input type="hidden" id="val-filtracion" value="Cumple"></div>
-                <div class="medicion-row"><label>H Cuello</label><input type="number" step="0.01" inputmode="decimal" id="med-hcuello" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-hcuello">Cumple</button><input type="hidden" id="val-hcuello" value="Cumple"></div>
+        <div class="medicion-row"><label>H Cuello</label><input type="number" step="0.01" inputmode="decimal" id="med-hcuello" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-hcuello">Cumple</button><input type="hidden" id="val-hcuello" value="Cumple"></div>
         <div class="medicion-row"><label>Φ Int. Gollete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-int" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-int">Cumple</button><input type="hidden" id="val-phi-int" value="Cumple"></div>
         <div class="medicion-row"><label>Φ Hilo Gollete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-hilo" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-hilo">Cumple</button><input type="hidden" id="val-phi-hilo" value="Cumple"></div>
         <div class="medicion-row"><label>Φ Trinquete</label><input type="number" step="0.01" inputmode="decimal" id="med-phi-trinquete" placeholder="Valor..."><button class="btn-toggle active-cumple" data-target="val-phi-trinquete">Cumple</button><input type="hidden" id="val-phi-trinquete" value="Cumple"></div>
@@ -143,17 +167,20 @@
         </div>
       </div>
 
-      <div class="button-group" style="display: flex; gap: 10px;">
+      <div class="button-group" style="display: flex; gap: 10px; margin-top: 15px;">
         <button id="btn-cancelar-ronda" class="btn btn-secondary" style="flex: 1; display:none;">⬅ Volver sin Cerrar</button>
-        <button id="btn-iniciar-ronda" class="btn btn-success" style="flex: 2;">🧪 Enviar a Laboratorio</button>
-        <button id="btn-cerrar-ronda" class="btn btn-success" style="flex: 2; display:none;">✅ Cerrar Ronda en Laboratorio</button>
+        <button id="btn-iniciar-ronda" class="btn btn-success" style="width: 100%;">🧪 Enviar a Laboratorio</button>
+        <button id="btn-cerrar-ronda" class="btn btn-success" style="flex: 2; display:none;">✅ GUARDAR REGISTRO FINAL</button>
       </div>
     </div>
 
+    <!-- PESTAÑA PENDIENTES LABORATORIO -->
     <div id="view-borradores" class="app-view">
       <div class="card-section">
         <h3>Rondas Pendientes de Laboratorio</h3>
-        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">Rondas abiertas en terreno por cualquier inspector, a la espera del ensayo de laboratorio. Toca "Completar" para cerrarla.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px;">
+          Rondas enviadas desde terreno. Presiona "Completar" para cargar las especificaciones y terminar el registro.
+        </p>
         <div class="table-container">
           <table>
             <thead>
@@ -172,6 +199,7 @@
       </div>
     </div>
 
+    <!-- PESTAÑA HISTORIAL -->
     <div id="view-historial" class="app-view">
       <div class="card-section">
         <h3>Mis Registros de este Turno</h3>
@@ -200,10 +228,11 @@
       </div>
     </div>
 
+    <!-- PESTAÑA ANÁLISIS -->
     <div id="view-analisis" class="app-view">
       <div class="card-section">
         <h3>Tendencia de Peso y Ciclo</h3>
-        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 15px;">Muestra las últimas 10 rondas cerradas del producto seleccionado.</p>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 15px;">Muestra las últimas 10 rondas cerradas del producto seleccionado.</p>
         <div class="form-group">
           <label>Producto:</label>
           <select id="select-analisis-producto"></select>
@@ -211,8 +240,10 @@
         <canvas id="chartTendencia" style="width: 100%; height: 300px;"></canvas>
       </div>
     </div>
+
   </div>
 
+  <!-- MODAL ESCÁNER QR -->
   <div id="qr-modal" class="modal">
     <div class="modal-content" style="text-align: center;">
       <div id="reader" style="width: 100%;"></div>
