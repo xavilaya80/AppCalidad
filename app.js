@@ -20,22 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarTurnoAuto();
   setupCustomComboboxes();
   checkSession();
-  setupDynamicValidationListeners();
-
-  // Escuchadores de estado de red
-  window.addEventListener('online', () => {
-    actualizarIndicadorConexion();
-    procesarColaOffline();
-  });
-  window.addEventListener('offline', () => {
-    actualizarIndicadorConexion();
-  });
-
-  // Primera actualización e intento de sincronización si está online
-  actualizarIndicadorConexion();
-  if (navigator.onLine) {
-    procesarColaOffline();
-  }
 });
 
 function obtenerHoraSantiago() {
@@ -120,6 +104,7 @@ function mostrarModoEsperaPendiente() {
   document.getElementById('ronda-info-banner').style.display = 'none';
   document.getElementById('card-identificacion').style.display = 'none';
   document.getElementById('card-mediciones').style.display = 'none';
+  document.getElementById('specs-banner').style.display = 'none';
   document.getElementById('btn-iniciar-ronda').style.display = 'none';
   document.getElementById('btn-cerrar-ronda').style.display = 'none';
   document.getElementById('btn-cancelar-ronda').style.display = 'none';
@@ -130,6 +115,7 @@ function mostrarModoLaboratorio() {
   document.getElementById('ronda-info-banner').style.display = 'block';
   document.getElementById('card-identificacion').style.display = 'none';
   document.getElementById('card-mediciones').style.display = 'block';
+  document.getElementById('specs-banner').style.display = 'block';
   document.getElementById('btn-iniciar-ronda').style.display = 'none';
   document.getElementById('btn-cerrar-ronda').style.display = 'block';
   document.getElementById('btn-cancelar-ronda').style.display = 'block';
@@ -201,51 +187,50 @@ function resetFormularioCompleto() {
   resetFormularioMediciones();
 }
 
-// --- PENDIENTES DE LABORATORIO (backend, compartidas entre todos los dispositivos) ---
 function actualizarContadorBorradores() {
-  document.getElementById('contador-borradores').innerText = obtenerPendientesCombinados().length;
+  const el = document.getElementById('contador-borradores');
+  if (el) el.innerText = pendientesCache.length;
 }
 
 function renderPendientes() {
   const tbody = document.getElementById('tabla-borradores-body');
   const rol = sessionStorage.getItem('rol_calidad');
-  const lista = obtenerPendientesCombinados();
+  if (!tbody) return;
 
-  if (lista.length === 0) {
+  if (pendientesCache.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No hay rondas pendientes de laboratorio.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = lista.map(p => {
-    const isOfflineStyle = p.isOfflinePlaceholder ? 'style="color: #fb923c; font-style: italic;"' : '';
-    const labelSinc = p.isOfflinePlaceholder ? ' <span style="font-size:0.7rem; background:#7c2d12; color:#ffedd5; padding:2px 4px; border-radius:3px; margin-left:5px;">Local</span>' : '';
-    return `
-    <tr ${isOfflineStyle}>
-      <td>${p.fechaHora}${labelSinc}</td><td>${p.maquina}</td><td>${p.producto}</td><td>${p.correlativoMaquina || '-'}</td><td>${p.inspector}</td>
+  tbody.innerHTML = pendientesCache.map(p => `
+    <tr>
+      <td>${p.fechaHora}</td><td>${p.maquina}</td><td>${p.producto}</td><td>${p.correlativoMaquina || '-'}</td><td>${p.inspector}</td>
       <td style="display:flex; gap:5px;">
         ${rol === 'Laboratorio'
-          ? `<button onclick="cargarPendiente('${p.idInspeccion}')" class="btn btn-primary" style="height:35px; padding:0 10px;">Completar</button>
+          ? `<button onclick="cargarPendiente('${p.idInspeccion}')" class="btn btn-primary" style="height:35px; padding:0 10px;">▶️ Completar</button>
              <button onclick="cancelarPendiente('${p.idInspeccion}')" class="btn btn-danger" style="height:35px; padding:0 10px;">🗑️</button>`
           : '<span style="color:#94a3b8; font-size:0.8rem;">Solo Laboratorio</span>'}
       </td>
     </tr>
-  `}).join('');
+  `).join('');
 }
 
+// CARGA DE LA RONDA EN LABORATORIO CON TODOS SUS DATOS DE TERRENO Y ESPECIFICACIONES
 window.cargarPendiente = function (id) {
   const rol = sessionStorage.getItem('rol_calidad');
   if (rol !== 'Laboratorio') return;
 
-  const lista = obtenerPendientesCombinados();
-  const pendiente = lista.find(p => p.idInspeccion === id);
+  const pendiente = pendientesCache.find(p => p.idInspeccion === id);
   if (!pendiente) {
-    alert("Esa ronda ya no está pendiente (puede que otra persona ya la haya cerrado). Actualizando lista...");
+    alert("Esa ronda ya no está pendiente. Actualizando lista...");
     loadCatalogData();
     return;
   }
 
   document.getElementById('select-maquina').value = pendiente.maquina;
   document.getElementById('select-producto').value = pendiente.producto;
+  
+  // 1. Llenar los datos de identificación
   document.getElementById('ronda-info-maquina').innerText = pendiente.maquina;
   document.getElementById('ronda-info-producto').innerText = pendiente.producto;
   document.getElementById('ronda-info-operario').innerText = pendiente.operario || '-';
@@ -253,11 +238,14 @@ window.cargarPendiente = function (id) {
   document.getElementById('ronda-info-lotemp').innerText = pendiente.loteMp || '-';
   document.getElementById('ronda-info-lotebxa').innerText = pendiente.loteBxa || '-';
   document.getElementById('ronda-info-inspector').innerText = pendiente.inspector || '-';
-  document.getElementById('ronda-info-color').innerText = `${pendiente.color_med || '-'} (${pendiente.color_val || 'Cumple'})`;
-  document.getElementById('ronda-info-ciclo').innerText = `${pendiente.ciclo_med || '-'} (${pendiente.ciclo_val || 'Cumple'})`;
-  document.getElementById('ronda-info-peso').innerText = `${pendiente.peso_med || '-'} (${pendiente.peso_val || 'Cumple'})`;
-  document.getElementById('ronda-info-probador').innerText = `${pendiente.probador_med || '-'} (${pendiente.probador_val || 'Cumple'})`;
 
+  // 2. Llenar los datos medidos en terreno
+  document.getElementById('ronda-info-color').innerText = `${pendiente.color_med || 'S/D'} [${pendiente.color_val || 'Cumple'}]`;
+  document.getElementById('ronda-info-ciclo').innerText = `${pendiente.ciclo_med || 'S/D'} s [${pendiente.ciclo_val || 'Cumple'}]`;
+  document.getElementById('ronda-info-peso').innerText = `${pendiente.peso_med || 'S/D'} g [${pendiente.peso_val || 'Cumple'}]`;
+  document.getElementById('ronda-info-probador').innerText = `${pendiente.probador_med || 'S/D'} [${pendiente.probador_val || 'Cumple'}]`;
+
+  // 3. Desplegar todas las tolerancias y especificaciones técnicas del producto
   actualizarFichaProducto(pendiente.producto);
 
   currentRondaId = pendiente.idInspeccion;
@@ -266,22 +254,10 @@ window.cargarPendiente = function (id) {
 
 window.cancelarPendiente = async function (id) {
   if (!confirm("¿Descartar esta ronda pendiente? Se perderá el registro de esa pasada por la máquina.")) return;
-
-  const queue = obtenerColaOffline();
-  const itemCrear = queue.find(item => item.payload.action === 'crearRonda' && item.payload.idRonda === id);
-  if (itemCrear) {
-    const nuevaCola = queue.filter(item => item.payload.idRonda !== id);
-    guardarColaOffline(nuevaCola);
-    alert("Ronda local eliminada con éxito.");
-    await loadCatalogData();
-    return;
-  }
-
   await postAccion({ action: 'cancelarRonda', idRonda: id });
   await loadCatalogData();
 };
 
-// --- COMBOBOXES CORREGIDOS Y ACTIVOS ---
 function setupCustomComboboxes() {
   const configs = [
     { inputId: 'input-search-maquina', dropId: 'dropdown-maquina', getData: () => maquinasCache, type: 'maquina' },
@@ -347,62 +323,24 @@ function setupCustomComboboxes() {
   });
 }
 
-function normalizarClaveCatalogo(valor) {
-  return String(valor || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
-}
-
-function buscarProductoCatalogo(productoRef) {
-  const ref = normalizarClaveCatalogo(productoRef);
-  if (!ref) return null;
-  return productosCache.find(p =>
-    normalizarClaveCatalogo(p.id) === ref ||
-    normalizarClaveCatalogo(p.nombre) === ref
-  );
-}
-
-function valorSpec(valor) {
-  if (valor === undefined || valor === null) return '-';
-  const texto = String(valor).trim();
-  return texto === '' ? '-' : texto;
-}
-
-function formatearSpecsProducto(producto) {
-  if (!producto) return 'No encontradas en catálogo para este producto.';
-  const specs = [
-    ['Color', producto.color],
-    ['Peso', producto.peso],
-    ['Ciclo', producto.ciclo],
-    ['Espesor', producto.espesor],
-    ['Calce', producto.calce],
-    ['Filtración', producto.filtracion],
-    ['Probador', producto.probador],
-    ['H Cuello', producto.hcuello],
-    ['Φ Int.', producto.diametroInterior],
-    ['Φ Hilo', producto.diametroHilo],
-    ['Φ Trinquete', producto.diametroTrinquete],
-    ['Rebalse', producto.rebalse],
-    ['Caída Libre', producto.caida],
-    ['Embalaje', producto.embalaje]
-  ];
-
-  return specs.map(item => `${item[0]}: ${valorSpec(item[1])}`).join(' | ');
-}
-
+// FICHA TÉCNICA COMPLETA DEL PRODUCTO
 function actualizarFichaProducto(prodId) {
-  const selected = buscarProductoCatalogo(prodId);
+  const selected = productosCache.find(p => p.id === prodId || p.nombre === prodId);
   const banner = document.getElementById('specs-banner');
-  const specsLaboratorio = document.getElementById('ronda-specs-detalle');
-  if (specsLaboratorio) specsLaboratorio.innerText = formatearSpecsProducto(selected);
-  if (selected) {
-    const bannerDetalle = document.getElementById('specs-banner-detalle');
-    if (bannerDetalle) bannerDetalle.innerText = formatearSpecsProducto(selected);
+  if (selected && banner) {
+    document.getElementById('spec-peso').innerText = selected.peso || '-';
+    document.getElementById('spec-ciclo').innerText = selected.ciclo || '-';
+    document.getElementById('spec-color').innerText = selected.color || '-';
+    document.getElementById('spec-espesor').innerText = selected.espesor || '-';
+    document.getElementById('spec-hcuello').innerText = selected.hcuello || '-';
+    document.getElementById('spec-diam-int').innerText = selected.diametroInterior || '-';
+    document.getElementById('spec-diam-hilo').innerText = selected.diametroHilo || '-';
+    document.getElementById('spec-diam-trinquete').innerText = selected.diametroTrinquete || '-';
+    document.getElementById('spec-rebalse').innerText = selected.rebalse || '-';
     banner.style.display = 'block';
-  } else { banner.style.display = 'none'; }
+  } else if (banner) {
+    banner.style.display = 'none';
+  }
 }
 
 function setupEventListeners() {
@@ -426,10 +364,11 @@ function setupEventListeners() {
     checkSession();
   });
 
+  // BOTÓN 1: ENVIAR A LABORATORIO (TERRENO)
   document.getElementById('btn-iniciar-ronda').addEventListener('click', async () => {
     const dataId = recopilarDatosIdentificacion();
     if (!dataId.maquinaId || !dataId.productoId) {
-      alert("⚠️ Selecciona al menos Máquina y Producto para iniciar la ronda.");
+      alert("⚠️ Selecciona al menos Máquina y Producto para enviar a laboratorio.");
       return;
     }
 
@@ -444,12 +383,12 @@ function setupEventListeners() {
       else { el.style.borderColor = '#64748b'; }
     });
     if (faltantesTerreno.length > 0) {
-      alert("⚠️ Antes de pasar a laboratorio debes registrar en la máquina:\n\n• " + faltantesTerreno.join("\n• "));
+      alert("⚠️ Antes de enviar a laboratorio debes registrar en la máquina:\n\n• " + faltantesTerreno.join("\n• "));
       return;
     }
 
     const btn = document.getElementById('btn-iniciar-ronda');
-    btn.disabled = true; btn.innerText = "Enviando...";
+    btn.disabled = true; btn.innerText = "Enviando a Laboratorio...";
 
     const payload = {
       action: 'crearRonda',
@@ -469,7 +408,7 @@ function setupEventListeners() {
 
     const exito = await postAccion(payload);
     if (exito) {
-      alert("🚀 Ronda iniciada en la máquina. Queda pendiente de laboratorio.");
+      alert("🧪 Inspección enviada a Laboratorio con éxito.");
       resetFormularioIdentificacion();
       await loadCatalogData();
     }
@@ -477,6 +416,7 @@ function setupEventListeners() {
     btn.disabled = false; btn.innerText = "🧪 Enviar a Laboratorio";
   });
 
+  // BOTÓN 2: CERRAR Y GUARDAR REGISTRO FINAL (LABORATORIO)
   document.getElementById('btn-cerrar-ronda').addEventListener('click', async () => {
     if (!currentRondaId) { alert("No hay una ronda seleccionada."); return; }
 
@@ -497,12 +437,12 @@ function setupEventListeners() {
     });
 
     if (faltantes.length > 0) {
-      alert("⚠️ NO SE PUEDE CERRAR LA RONDA. Faltan completar en el laboratorio:\n\n• " + faltantes.join("\n• "));
+      alert("⚠️ NO SE PUEDE GUARDAR EL REGISTRO FINAL. Faltan completar en laboratorio:\n\n• " + faltantes.join("\n• "));
       return;
     }
 
     const btn = document.getElementById('btn-cerrar-ronda');
-    btn.disabled = true; btn.innerText = "Cerrando en Drive...";
+    btn.disabled = true; btn.innerText = "Guardando en Drive...";
 
     const payload = Object.assign(
       { action: 'cerrarRonda', idRonda: currentRondaId, inspector_lab: sessionStorage.getItem('usuario_calidad') },
@@ -511,7 +451,7 @@ function setupEventListeners() {
 
     const exito = await postAccion(payload);
     if (exito) {
-      alert("✅ Ronda cerrada. Registro final guardado.");
+      alert("✅ ¡Registro final cerrado y guardado exitosamente en Google Drive!");
       resetFormularioCompleto();
       await loadCatalogData();
       const rolActual = sessionStorage.getItem('rol_calidad');
@@ -519,7 +459,7 @@ function setupEventListeners() {
       document.querySelector(`.nav-tab[data-target="${siguienteTab}"]`).click();
     }
 
-    btn.disabled = false; btn.innerText = "✅ Registro Completado";
+    btn.disabled = false; btn.innerText = "✅ GUARDAR REGISTRO FINAL";
   });
 
   document.getElementById('btn-cancelar-ronda').addEventListener('click', () => {
@@ -548,228 +488,8 @@ function setupToggles() {
   });
 }
 
-// --- MANEJO DE COLA OFFLINE Y CACHÉ LOCAL ---
-
-function obtenerColaOffline() {
-  const queueStr = localStorage.getItem('appcalidad_offline_queue');
-  return queueStr ? JSON.parse(queueStr) : [];
-}
-
-function guardarColaOffline(queue) {
-  localStorage.setItem('appcalidad_offline_queue', JSON.stringify(queue));
-  actualizarIndicadorConexion();
-  actualizarContadoresUI();
-}
-
-function encolarAccion(payload) {
-  const queue = obtenerColaOffline();
-  queue.push({
-    id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-    payload: payload,
-    timestamp: new Date().toISOString()
-  });
-  guardarColaOffline(queue);
-}
-
-function actualizarIndicadorConexion() {
-  const badge = document.getElementById('connection-status-badge');
-  if (!badge) return;
-  
-  const queue = obtenerColaOffline();
-  const queueLength = queue.length;
-  
-  if (navigator.onLine) {
-    if (queueLength > 0) {
-      badge.innerHTML = `🟢 Sincronizando (${queueLength} pend.)...`;
-      badge.style.color = '#eab308';
-    } else {
-      badge.innerHTML = '🟢 En Línea';
-      badge.style.color = '#4ade80';
-    }
-  } else {
-    if (queueLength > 0) {
-      badge.innerHTML = `🔴 Sin Conexión (${queueLength} en cola)`;
-      badge.style.color = '#f87171';
-    } else {
-      badge.innerHTML = '🔴 Sin Conexión';
-      badge.style.color = '#f87171';
-    }
-  }
-}
-
-let procesandoCola = false;
-async function procesarColaOffline() {
-  if (procesandoCola) return;
-  if (!navigator.onLine) return;
-  
-  const queue = obtenerColaOffline();
-  if (queue.length === 0) return;
-  
-  procesandoCola = true;
-  actualizarIndicadorConexion();
-  console.log(`[Offline Queue] Detectadas ${queue.length} acciones pendientes de sincronizar.`);
-  
-  while (queue.length > 0) {
-    const item = queue[0];
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(item.payload)
-      });
-      
-      queue.shift();
-      guardarColaOffline(queue);
-      console.log(`[Offline Queue] Acción sincronizada con éxito:`, item.payload.action);
-    } catch (err) {
-      console.error("[Offline Queue] Error al intentar sincronizar, deteniendo cola:", err);
-      break;
-    }
-  }
-  
-  procesandoCola = false;
-  actualizarIndicadorConexion();
-  
-  if (obtenerColaOffline().length === 0) {
-    console.log("[Offline Queue] Sincronización completa. Recargando catálogos...");
-    await loadCatalogData();
-  }
-}
-
-function obtenerPendientesCombinados() {
-  let list = [...pendientesCache];
-  const queue = obtenerColaOffline();
-  
-  queue.forEach(item => {
-    if (item.payload.action === 'crearRonda') {
-      const estaCerradaOCancelada = queue.some(qItem => 
-        qItem.timestamp > item.timestamp && 
-        (qItem.payload.action === 'cerrarRonda' || qItem.payload.action === 'cancelarRonda') && 
-        qItem.payload.idRonda === item.payload.idRonda
-      );
-      
-      if (!estaCerradaOCancelada && !list.some(p => p.idInspeccion === item.payload.idRonda)) {
-        list.push({
-          idInspeccion: item.payload.idRonda,
-          correlativo: "-",
-          correlativoMaquina: "(Local)",
-          fechaHora: new Date(item.payload.idRonda.split('-')[1] ? parseInt(item.payload.idRonda.split('-')[1]) : Date.now()).toLocaleString('es-CL'),
-          turno: obtenerTurnoAuto(),
-          inspector: item.payload.inspector_calidad,
-          maquina: item.payload.id_maquina,
-          producto: item.payload.id_producto,
-          operario: item.payload.operario,
-          loteMp: item.payload.lote_mp,
-          loteBxa: item.payload.lote_bxa,
-          cavidadMolde: item.payload.cavidad_molde,
-          color_med: item.payload.color_med, color_val: item.payload.color_val,
-          ciclo_med: item.payload.ciclo_med, ciclo_val: item.payload.ciclo_val,
-          peso_med: item.payload.peso_med, peso_val: item.payload.peso_val,
-          probador_med: item.payload.probador_med, probador_val: item.payload.probador_val,
-          isOfflinePlaceholder: true
-        });
-      }
-    }
-  });
-  
-  list = list.filter(p => {
-    const estaCerradaOCanceladaLocal = queue.some(item => 
-      (item.payload.action === 'cerrarRonda' || item.payload.action === 'cancelarRonda') && 
-      item.payload.idRonda === p.idInspeccion
-    );
-    return !estaCerradaOCanceladaLocal;
-  });
-  
-  return list;
-}
-
-function obtenerHistorialCombinado() {
-  let list = [...historialCache];
-  const queue = obtenerColaOffline();
-  
-  queue.forEach(item => {
-    if (item.payload.action === 'cerrarRonda') {
-      if (!list.some(h => h.idInspeccion === item.payload.idRonda)) {
-        let baseRonda = pendientesCache.find(p => p.idInspeccion === item.payload.idRonda);
-        if (!baseRonda) {
-          const creacionQueueItem = queue.find(q => q.payload.action === 'crearRonda' && q.payload.idRonda === item.payload.idRonda);
-          if (creacionQueueItem) {
-            baseRonda = {
-              maquina: creacionQueueItem.payload.id_maquina,
-              producto: creacionQueueItem.payload.id_producto,
-              inspector: creacionQueueItem.payload.inspector_calidad
-            };
-          }
-        }
-        
-        list.push({
-          idInspeccion: item.payload.idRonda,
-          correlativo: "(Pendiente)",
-          fechaHora: new Date(item.payload.idRonda.split('-')[1] ? parseInt(item.payload.idRonda.split('-')[1]) : Date.now()).toLocaleString('es-CL'),
-          turno: obtenerTurnoAuto(),
-          maquina: baseRonda ? baseRonda.maquina : "",
-          producto: baseRonda ? baseRonda.producto : "",
-          estado: "Cerrada (Pendiente)",
-          inspector: baseRonda ? baseRonda.inspector : "",
-          inspectorLab: item.payload.inspector_lab,
-          isOfflinePlaceholder: true
-        });
-      }
-    }
-  });
-  
-  return list;
-}
-
-function actualizarContadoresUI() {
-  actualizarContadorBorradores();
-  const activeTab = document.querySelector('.nav-tab.active');
-  if (activeTab) {
-    if (activeTab.dataset.target === 'view-borradores') renderPendientes();
-    if (activeTab.dataset.target === 'view-historial') renderHistorialInspector();
-  }
-}
-
-function setupDynamicValidationListeners() {
-  const todosLosInputs = [
-    'med-color', 'med-ciclo', 'med-peso', 'med-probador',
-    'med-espesor', 'med-calce', 'med-filtracion', 'med-hcuello',
-    'med-phi-int', 'med-phi-hilo', 'med-phi-trinquete', 'med-rebalse', 'med-caida'
-  ];
-  
-  todosLosInputs.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    
-    const resetBorder = () => {
-      el.style.borderColor = '#64748b';
-    };
-    el.addEventListener('input', resetBorder);
-    el.addEventListener('change', resetBorder);
-  });
-}
-
 async function postAccion(payload) {
-  if (!navigator.onLine) {
-    encolarAccion(payload);
-    let desc = "acción";
-    if (payload.action === 'crearRonda') desc = "Ronda de terreno guardada localmente";
-    if (payload.action === 'cerrarRonda') desc = "Cierre de laboratorio guardado localmente";
-    if (payload.action === 'cancelarRonda') desc = "Cancelación guardada localmente";
-    alert(`⚠️ Sin conexión a Internet.\n\n${desc} en la cola local. Se subirá automáticamente cuando se restablezca la conexión.`);
-    actualizarContadoresUI();
-    return true;
-  }
-
   try {
-    const queue = obtenerColaOffline();
-    if (queue.length > 0) {
-      encolarAccion(payload);
-      procesarColaOffline();
-      return true;
-    }
-
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -778,69 +498,33 @@ async function postAccion(payload) {
     });
     return true;
   } catch (err) {
-    console.warn("Fallo de red en postAccion, guardando en cola offline:", err);
-    encolarAccion(payload);
-    let desc = "acción";
-    if (payload.action === 'crearRonda') desc = "Ronda de terreno guardada localmente";
-    if (payload.action === 'cerrarRonda') desc = "Cierre de laboratorio guardado localmente";
-    alert(`⚠️ Error de conexión con el servidor.\n\n${desc} en la cola local. Se subirá automáticamente cuando se restablezca la conexión.`);
-    actualizarContadoresUI();
-    return true;
+    alert("Error al conectar con Drive.");
+    return false;
   }
 }
 
 async function loadCatalogData() {
   try {
-    const res = await fetch(GOOGLE_SCRIPT_URL); 
-    const data = await res.json();
-    
-    // Guardar en caché local para uso offline
-    localStorage.setItem('appcalidad_catalog_cache', JSON.stringify(data));
-    
+    const res = await fetch(GOOGLE_SCRIPT_URL); const data = await res.json();
     maquinasCache = data.maquinas || [];
     productosCache = data.productos || [];
     operariosCache = data.operarios || [];
     historialCache = data.historial || [];
     pendientesCache = data.pendientes || [];
-    
     renderHistorialInspector();
     renderPendientes();
     actualizarContadorBorradores();
     poblarSelectAnalisis();
-  } catch (err) { 
-    console.error("Error API, intentando cargar caché local:", err);
-    const cachedDataStr = localStorage.getItem('appcalidad_catalog_cache');
-    if (cachedDataStr) {
-      try {
-        const data = JSON.parse(cachedDataStr);
-        maquinasCache = data.maquinas || [];
-        productosCache = data.productos || [];
-        operariosCache = data.operarios || [];
-        historialCache = data.historial || [];
-        pendientesCache = data.pendientes || [];
-        
-        renderHistorialInspector();
-        renderPendientes();
-        actualizarContadorBorradores();
-        poblarSelectAnalisis();
-      } catch (parseErr) {
-        console.error("Error parseando caché local:", parseErr);
-      }
-    }
-  }
+  } catch (err) { console.error("Error API:", err); }
 }
 
 function renderHistorialInspector() {
   const user = (sessionStorage.getItem('usuario_calidad') || '').toLowerCase();
   const tbody = document.getElementById('tabla-historial-body');
-  const lista = obtenerHistorialCombinado();
-  const mis = lista.filter(i => (i.inspector || '').toLowerCase() === user || (i.inspectorLab || '').toLowerCase() === user);
+  if (!tbody) return;
+  const mis = historialCache.filter(i => (i.inspector || '').toLowerCase() === user || (i.inspectorLab || '').toLowerCase() === user);
   if (mis.length === 0) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No tienes registros finales aún.</td></tr>`; return; }
-  tbody.innerHTML = mis.map(r => {
-    const isOfflineStyle = r.isOfflinePlaceholder ? 'style="color: #fb923c; font-style: italic;"' : '';
-    const labelSinc = r.isOfflinePlaceholder ? ' <span style="font-size:0.7rem; background:#7c2d12; color:#ffedd5; padding:2px 4px; border-radius:3px;">Local</span>' : '';
-    return `<tr ${isOfflineStyle}><td>${r.idInspeccion}</td><td>${r.correlativo}</td><td>${r.fechaHora}${labelSinc}</td><td>${r.turno}</td><td>${r.maquina}</td><td>${r.producto}</td><td>${r.estado}</td><td>${r.inspector}</td><td>${r.inspectorLab || '-'}</td></tr>`
-  }).join('');
+  tbody.innerHTML = mis.map(r => `<tr><td>${r.idInspeccion}</td><td>${r.correlativo}</td><td>${r.fechaHora}</td><td>${r.turno}</td><td>${r.maquina}</td><td>${r.producto}</td><td>${r.estado}</td><td>${r.inspector}</td><td>${r.inspectorLab || '-'}</td></tr>`).join('');
 }
 
 async function cerrarTurno() {
@@ -863,7 +547,6 @@ async function generarConsolidado() {
   alert("Proceso enviado.");
 }
 
-// --- ANÁLISIS: tendencia de Peso/Ciclo por producto ---
 function poblarSelectAnalisis() {
   const sel = document.getElementById('select-analisis-producto');
   if (!sel) return;
