@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calidad-proceso-v2026-fix-10';
+const CACHE_NAME = 'calidad-proceso-v2026-fix-11';
 
 // Nunca se interceptan: la app necesita que un fallo de red SEA un fallo de red.
 const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
