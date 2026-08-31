@@ -2,7 +2,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
 }
 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsjzw8hWWDvn7DTJBfRRVyCFtXyB2iP__NmGodyAOj3EJvdNozTQ-vUZW79RuiWryQIQ/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-g67rvd3sGRXueL-e3uomNnKAj9NtlMYBCy6R0LYxIeftx47iE1m8VDZDMdtwhOnh/exec';
 
 let productosCache = [];
 let maquinasCache = [];
