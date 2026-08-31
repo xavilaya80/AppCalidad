@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <!-- viewport-fit=cover es necesario para que env(safe-area-inset-*) funcione.
+       Sin esto, en iPhone con notch la barra de estado tapa el encabezado. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <title>App Control de Calidad</title>
+  <meta name="description" content="Control de calidad en proceso para planta de moldeo: rondas de terreno, ensayos de laboratorio por cavidad y reportes por turno.">
+
+  <!-- ===== PWA =====
+       El manifest existia pero nunca estuvo enlazado: sin este <link> el
+       navegador no ofrece "Instalar aplicacion" por mucho que exista el archivo. -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- Android / Chrome -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="AppCalidad">
+
+  <!-- iOS: Safari ignora el manifest, necesita sus propias etiquetas -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AppCalidad">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Iconos locales: antes dependian de un CDN externo (flaticon), asi que sin
+       internet no habia icono y la instalacion podia fallar. -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" type="text/javascript"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- MODAL DE SESION
+       Unica puerta de entrada: se usa igual para el primer ingreso del turno y
+       para el relevo entre inspectores. Cambia el titulo y aparece "Cancelar"
+       cuando ya hay alguien dentro, para que un toque accidental en "Cambiar
+       inspector" no cueste una ronda abierta. -->
+  <div id="login-modal" class="modal" style="display: flex;">
+    <div class="modal-content">
+      <h2 id="login-titulo">Iniciar Sesion</h2>
+      <p id="login-contexto" class="login-contexto"></p>
+      <div class="form-group">
+        <label>Seleccione Inspector:</label>
+        <select id="login-inspector">
+          <option value="">-- Seleccionar --</option>
+          <option value="Estrella">Estrella</option>
+          <option value="Micaela">Micaela</option>
+          <option value="Manuel">Manuel</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rol en este turno:</label>
+        <select id="login-rol">
+          <option value="Terreno">📋 Terreno (Ronda en maquina)</option>
+          <option value="Laboratorio">🧪 Laboratorio (Ensayos y cierre)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>PIN de Seguridad:</label>
+        <input type="password" id="login-pin" placeholder="Ingrese PIN"
+               inputmode="numeric" autocomplete="off">
+      </div>
+      <p id="login-error" style="color: #f87171; font-size: 0.85rem;"></p>
+      <div class="login-acciones">
+        <button id="btn-login" class="btn btn-primary">Entrar</button>
+        <button id="btn-login-cancelar" class="btn btn-secondary" style="display:none;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL -->
+  <div id="app-content" style="display: none;">
+    
+    <div class="header">
+      <div class="header-identidad">
+        <h2>Control de Calidad</h2>
+        <div class="header-datos">
+          <span id="user-display"></span>
+          <span id="turno-header-badge"></span>
+          <span id="rol-header-badge" class="badge-rol"></span>
+        </div>
+      </div>
+      <div class="header-acciones">
+        <!-- C4: contador de lo que todavia no llego a Drive. Se oculta cuando
+             la cola esta vacia, para no ser ruido permanente. -->
+        <button id="btn-cola-header" class="btn btn-warning btn-cola-badge"
+                style="display:none;" title="Registros guardados en la tablet sin subir"></button>
+        <button id="btn-cambiar-inspector" class="btn btn-secondary"
+                title="Entregar la tablet a otro inspector o cambiar de rol">🔄 Cambiar inspector</button>
+        <button id="btn-cerrar-turno" class="btn btn-danger">Cerrar Turno</button>
+        <button id="btn-logout" class="btn btn-secondary">🚪 Salir</button>
+      </div>
+    </div>
+
+    <!-- BARRA DE SINCRONIZACIÓN
+         Estado de la conexión y de la cola offline. El chip se puede tocar para
+         ver el detalle de lo que falta por enviar. -->
+    <div class="barra-sync">
+      <span id="sync-estado" class="sync-estado sync-online" role="button" tabindex="0"
+            title="Toca para ver el detalle de la sincronización">🟢 En línea</span>
+      <button id="btn-sincronizar" class="btn-sync" style="display:none;">⟳ Sincronizar ahora</button>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-target="view-nueva" id="nav-tab-nueva">📋 Inspección</button>
+      <button class="nav-tab" data-target="view-borradores">🧪 Pendientes Laboratorio (<span id="contador-borradores">0</span>)</button>
+      <button class="nav-tab" data-target="view-historial">🕒 Mi Historial</button>
+      <button class="nav-tab" data-target="view-analisis">📊 Análisis</button>
+    </div>
+
+    <!-- PESTAÑA PRINCIPAL DE INSPECCIÓN -->
+    <div id="view-nueva" class="app-view active">
+      <input type="hidden" id="input-turno">
+
+      <p id="msg-seleccionar-pendiente" style="display:none; text-align:center; padding: 20px; color:#94a3b8;">
+        Ve a la pestaña <strong>"🧪 Pendientes Laboratorio"</strong> y toca <strong>"Completar"</strong> en la ronda que vas a ensayar.
+      </p>
+
+      <!-- RESUMEN DE TERRENO VISIBLE EN LABORATORIO -->
+      <div id="ronda-info-banner" style="display:none; background:#1e293b; border: 1px solid #38bdf8; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        <h4 style="margin: 0 0 8px 0; color: #38bdf8;">📌 Datos de Terreno Registrados:</h4>
+        <div style="font-size: 0.9rem; line-height: 1.4;">
+          <strong>Máquina:</strong> <span id="ronda-info-maquina"></span> | 
+          <strong>Producto:</strong> <span id="ronda-info-producto"></span> | 
+          <strong>Operario:</strong> <span id="ronda-info-operario"></span> | 
+          <strong>N° Cavidades:</strong> <span id="ronda-info-cavidad" style="color:#38bdf8; font-weight:bold;"></span><br>
+          <strong>Lote MP:</strong> <span id="ronda-info-lotemp"></span> | 
+          <strong>Lote BXA:</strong> <span id="ronda-info-lotebxa"></span> | 
+          <strong>Insp. Terreno:</strong> <span id="ronda-info-inspector"></span>
+        </div>
+      </div>
+
+      <!-- FICHA DE ESPECIFICACIONES TÉCNICAS -->
+      <div id="specs-banner" style="display: none; background:#0f172a; border-left: 4px solid #10b981; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+        <h4 style="margin:0 0 6px 0; color:#10b981;">📋 Tolerancias y Especificaciones del Producto:</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 0.85rem;">
+          <div><strong>Peso Nominal:</strong> <span id="spec-peso">-</span></div>
+          <div><strong>Ciclo:</strong> <span id="spec-ciclo">-</span></div>
+          <div><strong>Color:</strong> <span id="spec-color">-</span></div>
+          <div><strong>Espesor:</strong> <span id="spec-espesor">-</span></div>
+          <div><strong>H Cuello:</strong> <span id="spec-hcuello">-</span></div>
+          <div><strong>Ø Int. Gollete:</strong> <span id="spec-diam-int">-</span></div>
+          <div><strong>Ø Hilo Gollete:</strong> <span id="spec-diam-hilo">-</span></div>
+          <div><strong>Ø Trinquete:</strong> <span id="spec-diam-trinquete">-</span></div>
+          <div><strong>Capacidad Rebalse:</strong> <span id="spec-rebalse">-</span></div>
+        </div>
+        <!-- C1: que se valida solo y que no. Una variable "sin rango" indica
+             que en Productos_Specs falta la tolerancia. -->
+        <p id="specs-validacion" class="specs-validacion"></p>
+      </div>
+
+      <!-- FASE 1: IDENTIFICACIÓN Y CHEQUEO EN MÁQUINA (TERRENO MULTI-CAVIDAD) -->
+      <div class="card-section" id="card-identificacion">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+          <h3 style="margin:0;">1. Identificación Terreno</h3>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:#f87171; background:#450a0a; padding:6px 10px; border-radius:6px; border:1px solid #ef4444;">
+            <input type="checkbox" id="check-maquina-detenida"> ⛔ ¿Máquina Detenida?
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Máquina:</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="input-search-maquina" placeholder="Buscar máquina..." autocomplete="off">
+            <button id="btn-qr" class="btn btn-primary" style="width: 50px;">📷</button>
+          </div>
+          <input type="hidden" id="select-maquina">
+          <div id="dropdown-maquina" class="combobox-dropdown"></div>
+        </div>
+
+        <!-- SECCIÓN MOTIVO DETENCIÓN -->
+        <div id="seccion-detencion" style="display:none; background:#1e1b4b; border:1px solid #6366f1; padding:12px; border-radius:8px; margin-bottom:15px;">
+          <h4 style="margin:0 0 8px 0; color:#818cf8;">Motivo de Máquina Detenida</h4>
+          <div class="form-group">
+            <label>Causa Principal:</label>
+            <select id="select-motivo-parada" style="width:100%; padding:8px; border-radius:4px; background:#0f172a; color:#fff; border:1px solid #475569;">
+              <option value="Mantención / Reparación Mecánica">Mantención / Reparación Mecánica</option>
+              <option value="Cambio de Molde / Formato">Cambio de Molde / Formato</option>
+              <option value="Falta de Materia Prima / Color">Falta de Materia Prima / Color</option>
+              <option value="Sin Operario Asignado">Sin Operario Asignado</option>
+              <option value="Ajuste de Parámetros de Proceso">Ajuste de Parámetros de Proceso</option>
+              <option value="Corte de Energía / Suministros">Corte de Energía / Suministros</option>
+              <option value="Otro Motivo">Otro Motivo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Detalle / Observación:</label>
+            <textarea id="input-obs-parada" rows="2" placeholder="Detalles de la detención..."></textarea>
+          </div>
+        </div>
+
+        <!-- BLOQUE PRODUCTIVO REGULAR -->
+        <div id="bloque-datos-produccion">
+          <div class="form-group">
+            <label>Producto:</label>
+            <input type="text" id="input-search-producto" placeholder="Buscar producto..." autocomplete="off">
+            <input type="hidden" id="select-producto">
+            <div id="dropdown-producto" class="combobox-dropdown"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Operario:</label>
+            <input type="text" id="input-search-operario" placeholder="Buscar o escribir operario..." autocomplete="off">
+            <input type="hidden" id="select-operario">
+            <div id="dropdown-operario" class="combobox-dropdown"></div>
+          </div>
+
+          <div class="form-group">
+            <label>N° Total de Cavidades del Molde (1 a 24):</label>
+            <input type="number" id="input-cavidad" min="1" max="24" step="1" value="1">
+          </div>
+
+          <div class="form-group"><label>Lote MP:</label><input type="text" id="input-lote-mp"></div>
+          <div class="form-group"><label>Lote BXA:</label><input type="text" id="input-lote-bxa"></div>
+
+          <h3 style="margin-top:15px;">Chequeo Rápido en Máquina (Por Cavidad)</h3>
+          
+          <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">
+            Toca un número para saltar a esa cavidad. El color indica su estado:
+            <span style="color:#64748b;">gris</span> sin empezar,
+            <span style="color:#fbbf24;">ámbar</span> incompleta,
+            <span style="color:#4ade80;">verde</span> lista,
+            <span style="color:#f87171;">rojo</span> con "No Cumple".
+            Usa <strong>⧉ Copiar a todas</strong> si el molde repite los mismos valores.
+          </p>
+
+          <!-- Estado vigente de la máquina elegida. -->
+        <div id="banner-maquina-detenida" class="banner-detenida" style="display:none;"></div>
+
+        <!-- ACTA DE TRASPASO: se llenan cuando se detecta el desvío, no al
+             cerrar el turno. Quedan fuera del bloque de producción para que
+             sigan visibles cuando la máquina está detenida. -->
+        <div class="acta-campos">
+          <div class="form-group">
+            <label for="input-accion-correctiva">Acción correctiva <small>(opcional)</small>:</label>
+            <input type="text" id="input-accion-correctiva" autocomplete="off"
+                   placeholder="Ej: Se corrige, se cambia material...">
+          </div>
+          <div class="form-group">
+            <label for="input-responsable">Responsable <small>(opcional)</small>:</label>
+            <input type="text" id="input-responsable" autocomplete="off"
+                   placeholder="Quién ejecutó la corrección">
+          </div>
+        </div>
+
+        <!-- CONTENEDOR DINÁMICO DE CAVIDADES EN TERRENO -->
+          <div id="contenedor-cavidades-terreno"></div>
+        </div>
+      </div>
+
+      <!-- FASE 2: MEDICIONES DE LABORATORIO MULTI-CAVIDAD -->
+      <div class="card-section" id="card-mediciones">
+        <h3>2. Mediciones de Laboratorio (Por cada Cavidad del Molde)</h3>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 12px;">
+          Navega entre cavidades con los números o con <strong>‹ Anterior / Siguiente ›</strong>.
+          En cada cavidad verás lo que registró terreno en esa misma cavidad.
+          Si una cavidad no se ensaya, márcala como <strong>"No Aplica"</strong>.
+        </p>
+        
+        <!-- CONTENEDOR DINÁMICO DE CAVIDADES EN LABORATORIO -->
+        <div id="contenedor-cavidades-lab"></div>
+
+        <div class="form-group" style="margin-top:15px;">
+          <label>Observaciones Adicionales:</label>
+          <textarea id="input-observaciones" rows="3" placeholder="Comentarios..."></textarea>
+        </div>
+      </div>
+
+      <div class="button-group" style="display: flex; gap: 10px; margin-top: 15px;">
+        <button id="btn-cancelar-ronda" class="btn btn-secondary" style="flex: 1; display:none;">⬅ Volver sin Cerrar</button>
+        <button id="btn-iniciar-ronda" class="btn btn-success" style="width: 100%;">🧪 Enviar a Laboratorio</button>
+        <button id="btn-registrar-detenida" class="btn btn-danger" style="width: 100%; display:none;">⛔ Registrar Máquina Detenida</button>
+        <button id="btn-cerrar-ronda" class="btn btn-success" style="flex: 2; display:none;">✅ GUARDAR REGISTRO FINAL (MULTICAVIDAD)</button>
+      </div>
+    </div>
+
+    <!-- PESTAÑA PENDIENTES LABORATORIO -->
+    <div id="view-borradores" class="app-view">
+      <div class="card-section">
+        <h3>Rondas Pendientes de Laboratorio</h3>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px;">
+          Rondas enviadas desde terreno. Presiona "Completar" para cargar las especificaciones y terminar el registro.
+        </p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha/Hora</th>
+                <th>Máquina</th>
+                <th>Producto</th>
+                <th>N° Ronda</th>
+                <th>Cav.</th>
+                <th>Inspector Terreno</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-borradores-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA HISTORIAL -->
+    <div id="view-historial" class="app-view">
+      <div class="card-section">
+        <h3>Mis Registros de este Turno</h3>
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <button id="btn-refresh-historial" class="btn btn-primary">🔄 Actualizar</button>
+          <button id="btn-generar-pdf-ahora" class="btn btn-warning">📄 Forzar PDF Ahora</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>N°</th>
+                <th>Fecha/Hora</th>
+                <th>Turno</th>
+                <th>Máquina</th>
+                <th>Producto</th>
+                <th>Cav.</th>
+                <th>Estado</th>
+                <th>Insp. Terreno</th>
+                <th>Insp. Laboratorio</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-historial-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA ANÁLISIS -->
+    <div id="view-analisis" class="app-view">
+      <div class="card-section">
+        <h3>Tendencia por Cavidad</h3>
+        <p id="analisis-nota" class="analisis-nota"></p>
+
+        <div class="analisis-filtros">
+          <div class="form-group">
+            <label for="select-analisis-producto">Producto:</label>
+            <select id="select-analisis-producto"></select>
+          </div>
+          <div class="form-group">
+            <label for="select-analisis-cavidad">Cavidad:</label>
+            <select id="select-analisis-cavidad" disabled>
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="select-analisis-variable">Variable:</label>
+            <select id="select-analisis-variable" disabled>
+              <option value="peso">Peso (g)</option>
+              <option value="ciclo">Ciclo (s)</option>
+              <option value="espesor">Espesor (mm)</option>
+            </select>
+          </div>
+        </div>
+
+        <canvas id="chartTendencia" style="width: 100%; height: 300px;"></canvas>
+        <p id="analisis-leyenda" class="analisis-leyenda"></p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL DE CIERRE DE TURNO
+       El turno sugerido sale de la hora, pero SIEMPRE es confirmable: cerrar el
+       Turno Mañana a las 20:05 no debe consolidar el Turno Noche recién empezado. -->
+  <div id="turno-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="turno-modal-titulo" style="margin-top:0;">Cerrar turno</h3>
+      <p style="font-size:0.8rem; color:#94a3b8;">
+        Confirma qué turno estás cerrando. Se sugiere uno según la hora, pero puedes cambiarlo.
+      </p>
+
+      <div id="turno-aviso" class="turno-aviso" style="display:none;"></div>
+
+      <!-- C4: lo que sigue en la tablet no va a estar en el PDF que se genere
+           ahora. Se avisa ANTES de confirmar, no solo al apretar el boton. -->
+      <div id="turno-cola-aviso" class="turno-cola-aviso" style="display:none;"></div>
+
+      <div class="form-group">
+        <label>Turno a consolidar:</label>
+        <select id="select-turno-cerrar">
+          <option value="Turno Mañana">☀️ Turno Mañana (08:00 – 20:00)</option>
+          <option value="Turno Noche">🌙 Turno Noche (20:00 – 08:00)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Fecha operativa:</label>
+        <input type="date" id="input-fecha-turno">
+        <small style="color:#94a3b8; font-size:0.72rem;">
+          Para el Turno Noche es la fecha en que <strong>comenzó</strong> (a las 20:00),
+          aunque lo cierres a la mañana siguiente.
+        </small>
+      </div>
+
+      <div id="turno-resumen" class="turno-resumen"></div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button id="btn-turno-confirmar" class="btn btn-success" style="flex:2;">✅ Confirmar</button>
+        <button id="btn-turno-cancelar" class="btn btn-secondary" style="flex:1;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETALLE DE LA COLA OFFLINE -->
+  <div id="cola-modal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">Registros guardados en esta tablet</h3>
+      <p style="font-size:0.8rem; color:#94a3b8;">
+        Se envían solos cuando vuelve la señal. Nada se borra automáticamente.
+      </p>
+      <div id="cola-resumen" class="cola-resumen"></div>
+      <div id="cola-lista" class="cola-lista"></div>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button id="btn-cola-sync" class="btn btn-primary" style="flex:2;">🔄 Sincronizar Todo Ahora</button>
+        <button id="btn-cola-cerrar" class="btn btn-secondary" style="flex:1;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE REACTIVACIÓN
+       Se abre al elegir una máquina que quedó detenida. Una máquina detenida
+       no vuelve sola a producción: alguien tiene que ir, comprobar que se
+       arregló y decir quién lo arregló. -->
+  <div id="reactivar-modal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">⛔ Máquina detenida</h3>
+
+      <div id="reactivar-detalle" class="reactivar-detalle"></div>
+
+      <p class="reactivar-pregunta">¿Se corrigió la falla y la máquina ya está operativa?</p>
+
+      <div id="reactivar-campos" style="display:none;">
+        <div class="form-group">
+          <label for="input-reactivar-accion">¿Qué se hizo para corregirla?</label>
+          <input type="text" id="input-reactivar-accion" autocomplete="off"
+                 placeholder="Ej: Se cambió la manguera de agua">
+        </div>
+        <div class="form-group">
+          <label for="input-reactivar-mecanico">Mecánico de mantención responsable:</label>
+          <input type="text" id="input-reactivar-mecanico" autocomplete="off"
+                 placeholder="Nombre de quien la reparó">
+        </div>
+        <p id="reactivar-error" class="reactivar-error"></p>
+      </div>
+
+      <div class="reactivar-botones">
+        <button id="btn-reactivar-si" class="btn btn-success">✅ Sí, ya está operativa</button>
+        <button id="btn-reactivar-no" class="btn btn-danger">⛔ No, sigue detenida</button>
+      </div>
+
+      <div id="reactivar-confirmar" style="display:none; margin-top:10px;">
+        <button id="btn-reactivar-guardar" class="btn btn-primary" style="width:100%;">
+          Continuar con la inspección
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DEL ACTA DE TRASPASO
+       Se abre al cerrar el turno, cuando los consolidados por máquina ya están
+       generados. El acta es el resumen de UNA fila por máquina. -->
+  <div id="acta-modal" class="modal">
+    <div class="modal-content acta-modal-content">
+      <h3 style="margin-top:0;">📋 Acta de Traspaso del Turno</h3>
+      <p id="acta-subtitulo" class="acta-subtitulo"></p>
+
+      <div id="acta-resumen" class="acta-resumen"></div>
+
+      <div class="form-group">
+        <label for="input-acta-jefe">Jefe de Turno:</label>
+        <input type="text" id="input-acta-jefe" autocomplete="off" placeholder="Nombre del jefe de turno">
+      </div>
+
+      <div class="form-group">
+        <label for="input-acta-obs">Observaciones generales del turno:</label>
+        <textarea id="input-acta-obs" rows="2" placeholder="Lo que el turno siguiente necesita saber..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="input-acta-correos">Enviar a (separa con coma):</label>
+        <textarea id="input-acta-correos" rows="2"
+                  placeholder="jefatura@beluxa.cl, produccion@beluxa.cl"></textarea>
+        <small class="acta-nota-correos">
+          Se recuerdan para el próximo turno. Deja el campo vacío para solo generar el PDF.
+        </small>
+      </div>
+
+      <p id="acta-estado" class="acta-estado"></p>
+
+      <div class="acta-botones">
+        <button id="btn-acta-enviar" class="btn btn-success">📧 Generar y Enviar</button>
+        <button id="btn-acta-generar" class="btn btn-primary">📄 Solo Generar</button>
+        <button id="btn-acta-cerrar" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ESCÁNER QR -->
+  <div id="qr-modal" class="modal">
+    <div class="modal-content" style="text-align: center;">
+      <div id="reader" style="width: 100%;"></div>
+      <button id="btn-close-qr" class="btn btn-danger" style="margin-top: 15px; width: 100%;">Cancelar Escáner</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

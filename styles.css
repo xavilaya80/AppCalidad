@@ -1,0 +1,1244 @@
+:root {
+  --bg-primary: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #334155;
+  --border-color: #475569;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  
+  --ind-blue: #0284c7;
+  --ind-blue-hover: #0369a1;
+  --ok-green: #16a34a;
+  --ng-red: #dc2626;
+  --no-aplica: #64748b;
+  --amber-warn: #d97706;
+
+  /* Faltaban: .btn-secondary y .btn-warning las pedian y quedaban sin fondo. */
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+#app-content {
+  width: 100%;
+  max-width: 650px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg-card);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.header h2 {
+  font-size: 1.1rem;
+  color: #38bdf8;
+}
+
+.header span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.nav-tab {
+  flex: 1;
+  padding: 10px 5px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.nav-tab.active {
+  background: var(--ind-blue);
+  color: white;
+  border-color: var(--ind-blue);
+}
+
+.app-view {
+  display: none;
+}
+
+.app-view.active {
+  display: block;
+}
+
+.card-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.card-section h3 {
+  font-size: 0.95rem;
+  color: #38bdf8;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+.form-group {
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  height: 42px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: white;
+  padding: 0 10px;
+  font-size: 0.9rem;
+}
+
+textarea {
+  height: auto;
+  padding: 8px 10px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.medicion-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.medicion-row label {
+  flex: 1.2;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.medicion-row input {
+  flex: 1;
+  height: 38px;
+}
+
+.btn-toggle {
+  height: 38px;
+  min-width: 105px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background-color 0.2s ease;
+}
+
+.btn-toggle.active-cumple {
+  background-color: var(--ok-green) !important;
+  color: white !important;
+}
+
+.btn-toggle.active-nocumple {
+  background-color: var(--ng-red) !important;
+  color: white !important;
+}
+
+.btn-toggle.active-noaplica {
+  background-color: var(--no-aplica) !important;
+  color: #f8fafc !important;
+}
+
+.btn {
+  height: 42px;
+  padding: 0 15px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary { background: var(--ind-blue); color: white; }
+.btn-secondary { background: var(--slate-700); color: white; }
+.btn-success { background: var(--ok-green); color: white; }
+.btn-danger { background: var(--ng-red); color: white; }
+.btn-warning { background: #eab308; color: var(--slate-900); }
+
+.combobox-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1e293b;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+  display: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+.combobox-item {
+  padding: 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 1px solid #334155;
+}
+
+.combobox-item:hover {
+  background: #0284c7;
+  color: white;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* El historial tiene 10 columnas y los pendientes 7: en vertical NO caben.
+   La opcion mala es dejar que el texto se parta y cada fila ocupe tres lineas,
+   que es lo que vuelve la tabla ilegible. Se prefiere una linea por fila y
+   scroll lateral. */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;   /* inercia al arrastrar en iPad */
+  overscroll-behavior-x: contain;      /* no arrastra la pagina ni dispara "atras" */
+  scrollbar-width: thin;
+  scrollbar-color: #475569 var(--bg-card);
+}
+
+/* Barra visible: sin ella nada indica que hay mas columnas a la derecha. */
+.table-container::-webkit-scrollbar { height: 10px; }
+.table-container::-webkit-scrollbar-track { background: var(--bg-card); border-radius: 5px; }
+.table-container::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 5px;
+}
+.table-container::-webkit-scrollbar-thumb:active { background: #38bdf8; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+/* Que la tabla crezca lo que necesite y el contenedor haga el scroll. */
+.table-container table {
+  width: max-content;
+  min-width: 100%;
+}
+
+th, td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+th {
+  background: #0f172a;
+  color: #38bdf8;
+}
+
+
+/* ============================================================
+   NAVEGACION POR CAVIDAD (A3)
+   Una cavidad visible a la vez + chips que hacen de indice y semaforo.
+   ============================================================ */
+.cav-barra {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.cav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cav-chip {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #94a3b8;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cav-chip.cav-incompleta { border-color: #f59e0b; color: #fbbf24; }
+.cav-chip.cav-completa   { border-color: #22c55e; color: #4ade80; }
+.cav-chip.cav-nocumple   { border-color: #ef4444; color: #f87171; background: #450a0a; }
+.cav-chip.activa {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
+  background: #0c4a6e;
+  color: #e0f2fe;
+}
+
+.cav-progreso { margin-top: 8px; font-size: 0.78rem; }
+.cav-progreso .prog-pend  { color: #fbbf24; }
+.cav-progreso .prog-ok    { color: #4ade80; }
+.cav-progreso .prog-falla { color: #f87171; }
+
+.cav-panel { display: none; }
+.cav-panel.activa {
+  display: block;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.cav-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.cav-titulo { color: #38bdf8; font-weight: bold; font-size: 0.95rem; }
+.cav-titulo small { color: #64748b; font-weight: normal; }
+
+.cav-copiar {
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cav-copiar:hover { border-color: #38bdf8; color: #e0f2fe; }
+
+/* Lo que terreno midio en esta misma cavidad, visible para el laboratorio. */
+.cav-contexto {
+  background: #1e293b;
+  border-left: 3px solid #38bdf8;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.cav-contexto b { color: #e2e8f0; }
+
+.cav-pie {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  border-top: 1px solid #334155;
+  padding-top: 10px;
+}
+.cav-nav-btn {
+  flex: 1;
+  min-height: 40px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cav-nav-btn:hover { border-color: #38bdf8; }
+
+@media (max-width: 480px) {
+  .cav-chip { min-width: 30px; height: 30px; font-size: 0.78rem; }
+  .cav-panel-head { flex-direction: column; align-items: stretch; }
+  .cav-copiar { width: 100%; }
+}
+
+
+/* ============================================================
+   ZONAS SEGURAS EN PANTALLA COMPLETA (A5)
+   Con apple-mobile-web-app-status-bar-style: black-translucent el contenido
+   se dibuja DEBAJO de la barra de estado del iPhone. Sin este relleno, el
+   encabezado queda tapado por la hora y la bateria.
+   ============================================================ */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+
+/* ============================================================
+   BARRA DE SINCRONIZACIÓN Y COLA OFFLINE (A6)
+   ============================================================ */
+.barra-sync {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+
+.sync-estado {
+  font-size: 0.82rem;
+  font-weight: bold;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sync-estado.sync-online     { color: #4ade80; border-color: #166534; background: #052e16; }
+.sync-estado.sync-offline    { color: #fbbf24; border-color: #92400e; background: #451a03; }
+.sync-estado.sync-error      { color: #f87171; border-color: #991b1b; background: #450a0a; }
+.sync-estado.sync-trabajando { color: #38bdf8; border-color: #075985; background: #082f49; }
+
+.btn-sync {
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  min-height: 36px;
+}
+.btn-sync:hover:not(:disabled) { background: #0369a1; }
+.btn-sync:disabled { opacity: 0.55; cursor: default; }
+
+/* --- Detalle de la cola --- */
+.cola-lista {
+  max-height: 45vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cola-item {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+}
+.cola-item-error { border-left-color: #ef4444; }
+
+.cola-item-cab {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: bold;
+  color: #cbd5e1;
+  margin-bottom: 4px;
+}
+.cola-item-hora { color: #64748b; font-weight: normal; font-size: 0.72rem; }
+.cola-item-desc { color: #e2e8f0; line-height: 1.4; }
+.cola-item-err {
+  margin-top: 5px;
+  color: #fca5a5;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.cola-item-acciones { display: flex; gap: 8px; margin-top: 8px; }
+.btn-cola-mini {
+  flex: 1;
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  min-height: 34px;
+}
+.btn-cola-mini:hover { border-color: #38bdf8; }
+.btn-cola-borrar:hover { border-color: #ef4444; color: #fca5a5; }
+
+@media (max-width: 480px) {
+  .barra-sync { justify-content: space-between; }
+  .btn-sync { flex: 1; }
+}
+
+
+/* ============================================================
+   MODAL DE CIERRE DE TURNO (B3)
+   ============================================================ */
+.turno-aviso {
+  background: #451a03;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+  color: #fbbf24;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.turno-resumen {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-left: 3px solid #38bdf8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+.turno-resumen strong { color: #e2e8f0; font-size: 0.9rem; }
+.turno-resumen-alerta { border-left-color: #f59e0b; }
+.turno-resumen-vacio  { border-left-color: #64748b; color: #94a3b8; }
+
+.turno-resumen span { display: inline-block; margin-right: 12px; white-space: nowrap; }
+.turno-resumen .tr-ok   { color: #4ade80; }
+.turno-resumen .tr-pend { color: #fbbf24; }
+.turno-resumen .tr-det  { color: #f87171; }
+
+.turno-resumen .tr-nota {
+  margin-top: 6px;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+#input-fecha-turno {
+  width: 100%;
+  padding: 9px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  font-size: 0.9rem;
+  min-height: 42px;
+}
+
+
+/* ============================================================
+   HISTORIAL ACOTADO (B4)
+   ============================================================ */
+.historial-nota {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-left: 3px solid #38bdf8;
+  border-radius: 6px;
+  padding: 8px 11px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.historial-nota strong { color: #e2e8f0; }
+.historial-nota .hist-aviso {
+  display: block;
+  margin-top: 5px;
+  color: #fbbf24;
+}
+
+td.est-ok   { color: #4ade80; font-weight: bold; }
+td.est-pend { color: #fbbf24; font-weight: bold; }
+td.est-det  { color: #f87171; font-weight: bold; }
+
+/* ===================================================================
+ * B5 - SESION EN TABLET COMPARTIDA
+ * =================================================================== */
+
+.header-identidad {
+  min-width: 0;
+}
+
+.header-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* El rol se lee de un vistazo y con color propio: es el dato que mas cambia
+   durante el turno y el que decide que puede hacer la pantalla. */
+.badge-rol {
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-rol.rol-terreno {
+  color: #fbbf24 !important;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.badge-rol.rol-lab {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.header-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.header-acciones .btn {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+.login-contexto {
+  font-size: 0.82rem;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.login-contexto:empty {
+  display: none;
+}
+
+.login-acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.login-acciones .btn {
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .header-acciones {
+    justify-content: stretch;
+  }
+
+  .header-acciones .btn {
+    flex: 1;
+  }
+}
+
+
+/* ============================================================
+   B8 - TABLET EN PLANTA, MODO VERTICAL
+
+   La app no se usa en un escritorio: se usa de pie, junto a la maquina,
+   sosteniendo la tablet con una mano y muchas veces con guantes. Eso cambia
+   dos cosas respecto de los tamaños por defecto:
+
+     - un blanco de toque de 38 px se falla seguido con el dedo enguantado;
+       la referencia habitual es 44 px y aca se va a 48-52 px en lo que se
+       toca todo el rato (mediciones, Cumple/No Cumple, navegacion);
+     - una letra de 0.75 rem no se lee a la distancia a la que uno mira la
+       tablet apoyada en la maquina.
+
+   Se usan dos consultas distintas a proposito:
+     @media (pointer: coarse)  -> es tactil, sin importar el tamaño;
+     600-1024px + portrait     -> es una tablet en vertical, el caso real.
+   ============================================================ */
+
+
+/* ---- Cualquier pantalla tactil ---- */
+@media (hover: none) and (pointer: coarse) {
+
+  /* Safari hace zoom a la pagina al enfocar un campo de menos de 16px, y deja
+     el formulario descuadrado. 16px exactos lo evitan. */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Sin esto, dos toques rapidos sobre un boton hacen zoom en vez de dos
+     pulsaciones: con guantes pasa constantemente. */
+  .btn,
+  .btn-toggle,
+  .cav-chip,
+  .cav-nav-btn,
+  .cav-copiar,
+  .nav-tab,
+  .btn-sync,
+  .btn-cola-mini,
+  .combobox-item,
+  .sync-estado {
+    touch-action: manipulation;
+  }
+
+  /* Solo lo que crece sin ocupar mas ANCHO: en un telefono de 360px, subir el
+     ancho minimo de los chips o del toggle desarma la fila de medicion. Lo que
+     depende del ancho disponible va en el bloque de tablet. */
+  .btn { min-height: 48px; }
+  .btn-toggle { height: 48px; }
+  .medicion-row input { height: 48px; }
+  .cav-nav-btn { min-height: 46px; }
+  .btn-cola-mini { min-height: 44px; }
+  .nav-tab { padding: 14px 5px; }
+  .combobox-item { padding: 14px 10px; }
+
+  /* En tactil el :hover se queda pegado despues de tocar: la maquina elegida
+     quedaba resaltada como si el menu siguiera abierto. */
+  .combobox-item:hover { background: transparent; }
+  .cav-copiar:hover { border-color: var(--border-color); color: #94a3b8; }
+  .cav-nav-btn:hover { border-color: var(--border-color); }
+  .btn-cola-mini:hover { border-color: var(--border-color); }
+}
+
+
+/* ---- Tablet en vertical: el escenario de planta ---- */
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+
+  body { padding: 16px; }
+
+  /* 650px dejaba media pantalla vacia en una tablet de 800-810px de ancho. */
+  #app-content { max-width: 840px; }
+
+  .header h2 { font-size: 1.35rem; }
+  .header-datos { font-size: 0.9rem; }
+  .header span { font-size: 0.85rem; }
+  .badge-rol { font-size: 0.82rem !important; padding: 4px 12px; }
+
+  /* Los botones del encabezado tienen su propia regla mas especifica que .btn,
+     asi que hay que subirlos aparte o se quedan en 38px. */
+  .header-acciones .btn {
+    height: 46px;
+    padding: 0 16px;
+    font-size: 0.88rem;
+  }
+
+  .nav-tab {
+    font-size: 0.85rem;
+    padding: 16px 8px;
+  }
+
+  .card-section { padding: 16px; }
+  .card-section h3 { font-size: 1.05rem; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { font-size: 0.9rem; margin-bottom: 6px; }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    height: 52px;
+    font-size: 1rem;
+    padding: 0 14px;
+  }
+
+  textarea { height: auto; padding: 12px 14px; }
+
+  /* La fila de medicion es lo que mas se toca en todo el turno. */
+  .medicion-row { gap: 12px; margin-bottom: 12px; }
+  .medicion-row label { font-size: 0.95rem; }
+  .medicion-row input { height: 52px; font-size: 1.05rem; }
+
+  .btn-toggle {
+    height: 52px;
+    min-width: 142px;
+    font-size: 0.85rem;
+  }
+
+  .btn {
+    height: 52px;
+    padding: 0 20px;
+    font-size: 0.95rem;
+  }
+
+  /* Los chips son el indice de hasta 24 cavidades: si son chicos se falla el
+     salto y se termina midiendo en la cavidad equivocada. */
+  .cav-chip {
+    min-width: 48px;
+    height: 48px;
+    font-size: 1rem;
+  }
+  .cav-chips { gap: 8px; }
+
+  .cav-titulo { font-size: 1.1rem; }
+  .cav-progreso { font-size: 0.88rem; }
+  .cav-contexto { font-size: 0.85rem; }
+  .cav-nav-btn { height: 48px; font-size: 0.9rem; }
+  .cav-copiar { height: 40px; font-size: 0.8rem; }
+
+  table { font-size: 0.88rem; }
+  th, td { padding: 12px 10px; }
+
+  .modal-content { max-width: 560px; padding: 24px; }
+  .turno-resumen { font-size: 0.9rem; }
+  .barra-sync { padding: 10px 14px; }
+  .sync-estado { font-size: 0.85rem; }
+}
+
+
+/* ---- Tablet acostada ----
+   El manifest pide portrait, pero eso solo se respeta en modo instalado: en el
+   navegador la tablet igual rota. Que no quede una linea de texto de punta a
+   punta, que es ilegible. */
+@media (min-width: 900px) and (orientation: landscape) and (pointer: coarse) {
+  #app-content { max-width: 900px; }
+  .medicion-row label { flex: 1; }
+  .btn-toggle { min-width: 130px; }
+}
+
+
+/* ============================================================
+   C1 - VALIDACION CONTRA TOLERANCIA
+   ============================================================ */
+
+/* El rango va bajo el nombre del campo: el inspector ve contra que se lo esta
+   comparando, sin tener que subir al banner. */
+.med-rango {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+}
+
+.med-rango:empty { display: none; }
+
+/* Refuerzo en el propio campo. El boton ya dice el veredicto; esto lo hace
+   visible sin leer, que es lo que importa con 24 cavidades. */
+.medicion-row.med-dentro input:not([type="hidden"]) {
+  border-color: #16a34a;
+}
+
+.medicion-row.med-fuera input:not([type="hidden"]) {
+  border-color: #dc2626;
+  background: #450a0a;
+  font-weight: 700;
+}
+
+.specs-validacion {
+  margin: 10px 0 0 0;
+  font-size: 0.8rem;
+  color: #4ade80;
+  line-height: 1.4;
+}
+
+.specs-validacion:empty { display: none; }
+
+.specs-validacion-nula { color: #fbbf24; }
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .med-rango { font-size: 0.8rem; }
+  .specs-validacion { font-size: 0.88rem; }
+}
+
+
+/* ============================================================
+   C2 - CAVIDAD CON DESVIACION RECURRENTE
+   ============================================================ */
+
+/* Ambar y no rojo a proposito: el rojo ya significa "este valor no cumple".
+   Esto es otra cosa -un patron a investigar en el molde- y tiene que
+   distinguirse de un solo dato fuera de rango. */
+.cav-alerta {
+  background: #451a03;
+  border: 1px solid #f59e0b;
+  border-left-width: 5px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  color: #fed7aa;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.cav-alerta:empty {
+  display: none;
+}
+
+/* El panel completo se enmarca: la alerta se ve aunque el aviso quede sobre
+   el pliegue al hacer scroll entre mediciones. */
+.cav-panel.activa:has(.cav-alerta:not(:empty)) {
+  border-color: #f59e0b;
+}
+
+/* Y el chip, para que se note desde el indice sin entrar a la cavidad. */
+.cav-chip.cav-recurrente {
+  border-color: #f59e0b;
+  background: #451a03;
+  color: #fed7aa;
+  position: relative;
+}
+
+.cav-chip.cav-recurrente::after {
+  content: "!";
+  position: absolute;
+  top: -4px;
+  right: -3px;
+  background: #f59e0b;
+  color: #1e293b;
+  font-size: 0.6rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 999px;
+}
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .cav-alerta { font-size: 0.92rem; padding: 12px 14px; }
+}
+
+
+/* ============================================================
+   C3 - TENDENCIA POR CAVIDAD
+   ============================================================ */
+
+.analisis-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.analisis-filtros .form-group { margin-bottom: 0; }
+
+.analisis-nota {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.analisis-leyenda {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: #4ade80;
+  line-height: 1.4;
+}
+
+.analisis-leyenda:empty { display: none; }
+
+.analisis-leyenda-aviso { color: #fbbf24; }
+
+/* El lienzo necesita una altura propia: con maintainAspectRatio en false,
+   Chart.js toma la del contenedor. */
+#chartTendencia {
+  max-height: 320px;
+}
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .analisis-nota, .analisis-leyenda { font-size: 0.9rem; }
+  #chartTendencia { max-height: 400px; }
+}
+
+
+/* ============================================================
+   C4 - PANEL DE SINCRONIZACION
+   ============================================================ */
+
+.btn-cola-badge {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+  animation: cola-latido 2.4s ease-in-out infinite;
+}
+
+/* Latido lento: llama la atencion sin volverse molesto en un turno de 12 horas. */
+@keyframes cola-latido {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-cola-badge { animation: none; }
+}
+
+.cola-resumen {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fbbf24;
+  background: #451a03;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.cola-resumen-ok    { color: #4ade80; background: #052e16; }
+.cola-resumen-error { color: #fca5a5; background: #450a0a; }
+
+.cola-item-tipo {
+  color: #38bdf8;
+  font-weight: 800;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.cola-item-maquina {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.cola-item-desc {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+/* El registro que se esta enviando en este momento. */
+.cola-item-enviando {
+  border-left-color: #38bdf8;
+  background: #082f49;
+}
+
+.turno-cola-aviso {
+  background: #451a03;
+  border: 1px solid #f59e0b;
+  border-left-width: 5px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  color: #fed7aa;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .cola-item-tipo { font-size: 0.95rem; }
+  .cola-item-maquina, .cola-resumen { font-size: 0.9rem; }
+  .turno-cola-aviso { font-size: 0.92rem; }
+}
+
+
+/* ============================================================
+   ACTA DE TRASPASO
+   ============================================================ */
+
+.acta-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px;
+  background: rgba(56, 189, 248, 0.06);
+  border-left: 3px solid #38bdf8;
+  border-radius: 6px;
+}
+
+.acta-campos .form-group { margin-bottom: 0; }
+.acta-campos label small { color: #64748b; font-weight: normal; }
+
+/* El acta tiene mas contenido que los otros modales. */
+.acta-modal-content { max-width: 560px; }
+
+.acta-subtitulo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 12px;
+}
+
+.acta-resumen {
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.acta-linea-det   { color: #f87171; margin-top: 4px; }
+.acta-linea-falta { color: #fbbf24; margin-top: 4px; }
+
+.acta-nota-correos {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.acta-estado {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 12px 0 0 0;
+  white-space: pre-line;
+}
+
+.acta-estado:empty { display: none; }
+
+.acta-estado-ok         { color: #4ade80; }
+.acta-estado-error      { color: #fbbf24; }
+.acta-estado-trabajando { color: #38bdf8; }
+
+.acta-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.acta-botones .btn { flex: 1; min-width: 130px; }
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .acta-modal-content { max-width: 680px; }
+  .acta-resumen, .acta-estado { font-size: 0.9rem; }
+}
+
+
+/* ============================================================
+   REACTIVACION DE MAQUINA DETENIDA
+   ============================================================ */
+
+.banner-detenida {
+  background: #450a0a;
+  border: 1px solid #ef4444;
+  border-left-width: 5px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  color: #fecaca;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.reactivar-detalle {
+  background: #450a0a;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 14px;
+  color: #fecaca;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.reactivar-pregunta {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.reactivar-error {
+  color: #fbbf24;
+  font-size: 0.82rem;
+  margin: 6px 0 0 0;
+}
+
+.reactivar-error:empty { display: none; }
+
+.reactivar-botones {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reactivar-botones .btn { flex: 1; }
+
+@media (max-width: 480px) {
+  .reactivar-botones { flex-direction: column; }
+}
+
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+  .banner-detenida, .reactivar-detalle { font-size: 0.95rem; }
+  .reactivar-pregunta { font-size: 1.05rem; }
+}
