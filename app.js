@@ -1107,6 +1107,43 @@ function resetFormularioCompleto() {
   resetFormularioIdentificacion();
 }
 
+/* ===================================================================
+ * ID DE ENVIO ESTABLE (anti-duplicados)
+ *
+ * Antes el identificador se acuñaba DENTRO del click:
+ *     const idRonda = 'INSP-' + Date.now();
+ *
+ * Eso protege de los reintentos automaticos de la cola, que reenvian el mismo
+ * payload con el mismo id y chocan con la idempotencia del backend. Pero no
+ * protege de la persona. Si el servidor tarda mas de TIMEOUT_RED_MS, el fetch se
+ * aborta sin saber si la escritura ocurrio o no, y basta con que el inspector
+ * vuelva a pulsar para que salga un Date.now() distinto: id nuevo, fila nueva,
+ * ronda repetida en la planilla. Por eso pasaba "algunas veces" y no siempre.
+ *
+ * Ahora el id se acuña UNA vez y se conserva hasta que el envio queda resuelto
+ * (confirmado por el backend, o guardado en la cola con ese mismo id). Si se
+ * pulsa dos, tres o cuatro veces, las cuatro viaja el mismo identificador y el
+ * servidor reconoce que es el mismo registro.
+ * =================================================================== */
+const CLAVE_ID_ENVIO = 'id_envio_en_curso';
+
+function idEnvioEstable(prefijo) {
+  const guardado = sessionStorage.getItem(CLAVE_ID_ENVIO);
+  if (guardado && guardado.indexOf(prefijo) === 0) return guardado;
+  const nuevo = prefijo + Date.now();
+  sessionStorage.setItem(CLAVE_ID_ENVIO, nuevo);
+  return nuevo;
+}
+
+/*
+ * Se llama cuando el envio dejo de estar en el aire: o el backend lo confirmo, o
+ * quedo en la cola offline (que ya tiene el id dentro del payload y lo reusara en
+ * cada reintento). A partir de aca, el proximo registro merece un id nuevo.
+ */
+function liberarIdEnvio() {
+  sessionStorage.removeItem(CLAVE_ID_ENVIO);
+}
+
 function actualizarContadorBorradores() {
   const el = document.getElementById('contador-borradores');
   if (el) el.innerText = pendientesCache.length;
@@ -1424,7 +1461,7 @@ function setupEventListeners() {
       }
 
       const detalleObs = obs ? `[DETENIDA - ${motivo}]: ${obs}` : `[DETENIDA - ${motivo}]`;
-      const idDetencion = 'DETENIDA-' + Date.now();
+      const idDetencion = idEnvioEstable('DETENIDA-');
 
       btnDetenida.disabled = true;
       btnDetenida.innerText = "Registrando Detención...";
@@ -1440,12 +1477,15 @@ function setupEventListeners() {
         }, `Detención · ${maquinaId} · ${motivo}`);
 
         if (resultado.encolado) {
+          liberarIdEnvio();
           alert(mensajeEncolado(`Detención de ${maquinaId} (${motivo})`, colaPendientes().length, resultado.reintentable));
           resetFormularioIdentificacion();
           return;
         }
 
         if (!resultado.ok) { alert(mensajeErrorRed(resultado)); return; }
+
+        liberarIdEnvio();
 
         const d = resultado.data;
         alert(`\u26d4 Máquina ${maquinaId} registrada como DETENIDA.\n\n` +
@@ -1479,7 +1519,9 @@ function setupEventListeners() {
     }
 
     const btn = document.getElementById('btn-iniciar-ronda');
-    const idRonda = 'INSP-' + Date.now();
+    // Estable: si este envio ya salio una vez y no se confirmo, se reusa el mismo
+    // id para que el backend lo reconozca en vez de escribir una fila nueva.
+    const idRonda = idEnvioEstable('INSP-');
     btn.disabled = true; btn.innerText = "Enviando a Laboratorio...";
 
     try {
@@ -1505,15 +1547,31 @@ function setupEventListeners() {
       }, `Ronda de terreno · ${dataIdent.maquinaId} · ${dataIdent.productoId} · ${numCav} cav.`);
 
       if (resultado.encolado) {
+        // El id ya viaja dentro del payload encolado y se reusara en cada
+        // reintento: este envio esta resuelto y el siguiente empieza limpio.
+        liberarIdEnvio();
         alert(mensajeEncolado(
           `Ronda de ${dataIdent.maquinaId} (${numCav} cavidades)`, colaPendientes().length, resultado.reintentable));
         resetFormularioIdentificacion();
         return;
       }
 
+      // Rechazo del backend: NO se libera el id. Si la persona corrige y reenvia,
+      // tiene que ir con el mismo identificador.
       if (!resultado.ok) { alert(mensajeErrorRed(resultado)); return; }
 
+      liberarIdEnvio();
+
       const d = resultado.data;
+      if (d.duplicado) {
+        alert(`\u2139\ufe0f Esta ronda ya estaba registrada.\n\n` +
+              `No se creó una copia: se conservó el registro original ${d.id}.\n` +
+              `Ronda N° ${d.correlativoMaquina} de esta máquina en el turno.`);
+        resetFormularioIdentificacion();
+        await loadCatalogData();
+        return;
+      }
+
       alert(`🧪 Inspección enviada a Laboratorio.\n\n` +
             `Cavidades registradas: ${d.cavidadesRegistradas} de ${d.cavidadesDeclaradas}\n` +
             `Ronda N° ${d.correlativoMaquina} de esta máquina en el turno.`);
@@ -1858,7 +1916,7 @@ async function enviarAlBackend(payload) {
       ok: false,
       sinRed: true,
       message: (err && err.name === 'AbortError')
-        ? `El servidor no respondió en ${TIMEOUT_RED_MS / 1000} segundos. El registro NO se guardó.`
+        ? `El servidor no respondió en ${TIMEOUT_RED_MS / 1000} segundos. No se pudo confirmar si quedó guardado; se reintentará solo.`
         : 'Sin conexión con Google Drive. El registro NO se guardó.'
     };
   } finally {
