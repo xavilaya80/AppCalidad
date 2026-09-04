@@ -1649,7 +1649,38 @@ function setupEventListeners() {
   document.getElementById('btn-generar-pdf-ahora').addEventListener('click', generarConsolidado);
   document.getElementById('btn-qr').addEventListener('click', startQRScanner);
   document.getElementById('btn-close-qr').addEventListener('click', stopQRScanner);
-  document.getElementById('btn-refresh-historial').addEventListener('click', loadCatalogData);
+  /*
+   * El boton llamaba a loadCatalogData() directo. Como esa funcion es async y
+   * atrapa sus propios errores (solo console.error), al pulsar no pasaba nada
+   * visible: ni mientras cargaba, ni al terminar bien, ni al fallar. Desde la
+   * tablet era indistinguible de un boton muerto. Ahora informa los tres casos.
+   */
+  document.getElementById('btn-refresh-historial').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    if (btn.disabled) return;              // evita recargas encimadas al doble toque
+
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '\u23F3 Actualizando...';
+
+    let mensaje = null;
+    try {
+      const ok = await loadCatalogData();
+      btn.innerHTML = ok ? '\u2705 Actualizado' : '\u26A0 Sin conexion';
+      if (!ok) {
+        mensaje = 'No se pudo actualizar el historial.\n\n' +
+                  'Revisa la senal e intentalo de nuevo. Los registros que tengas ' +
+                  'en cola no se pierden.';
+      }
+    } catch (err) {
+      btn.innerHTML = '\u26A0 Error';
+      mensaje = 'No se pudo actualizar el historial.\n\n' + (err && err.message ? err.message : err);
+    } finally {
+      setTimeout(() => { btn.innerHTML = textoOriginal; btn.disabled = false; }, 1800);
+    }
+
+    if (mensaje) alert(mensaje);           // fuera del finally: no bloquea el reset del boton
+  });
 
   // C3: los tres selectores del analisis repintan el mismo grafico.
   ['select-analisis-producto', 'select-analisis-cavidad', 'select-analisis-variable']
