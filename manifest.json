@@ -1,0 +1,45 @@
+{
+  "id": "/appcalidad/",
+  "name": "App Calidad - Sistema de Control",
+  "short_name": "AppCalidad",
+  "description": "Control de calidad en proceso para planta de moldeo: rondas de terreno, ensayos de laboratorio por cavidad y reportes por turno.",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "categories": [
+    "productivity",
+    "business",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
