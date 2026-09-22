@@ -1987,7 +1987,20 @@ async function enviarAlBackend(payload) {
       // "busy" es el backend diciendo que no pudo tomar el lock (ver B2). Es una
       // condicion transitoria: hay que reintentar, no descartar el registro.
       reintentable: !!(datos && (datos.reintentable || datos.status === 'busy')),
-      message: (datos && datos.message) ? datos.message : 'El servidor rechazó la operación.'
+      /*
+       * Si el backend no mando un mensaje, se informa el estado crudo que devolvio.
+       *
+       * "El servidor rechazó la operación" a secas no le sirve a nadie: ni al
+       * inspector para saber que hacer en el momento, ni a quien despues tiene
+       * que averiguar que paso. Casi siempre ese caso significa que el
+       * despliegue que atendio la peticion quedo en una version anterior.
+       */
+      message: (datos && datos.message)
+        ? datos.message
+        : ('El servidor rechazó la operación' +
+           (datos && datos.status ? ' (estado: ' + datos.status + ')' : '') + '.\n\n' +
+           'Probá de nuevo. Si vuelve a pasar, avisá: puede que el backend haya ' +
+           'quedado en una versión anterior.')
     };
   }
 

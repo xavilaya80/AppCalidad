@@ -435,6 +435,22 @@ function horaCorta(fechaHora) {
   return m ? m[1] + ":" + m[2] : "";
 }
 
+/*
+ * Devuelve una medicion en forma legible.
+ *
+ * Si la celda quedo convertida en fecha por el separador decimal -"20.3" leido
+ * como 20 de marzo-, la reconstruye como dia.mes, que es el numero original.
+ * Cualquier otro valor pasa tal cual.
+ *
+ * Existe ademas de repararMedicionesFecha porque esa hay que ejecutarla a mano:
+ * mientras tanto, esto evita que un acta muestre "Fri Mar 20 2026" donde deberia
+ * ir un tiempo de ciclo.
+ */
+function medicionLegible(valor) {
+  if (valor instanceof Date) return valor.getDate() + "." + (valor.getMonth() + 1);
+  return valor;
+}
+
 function primerValorUtil(valores) {
   for (var i = valores.length - 1; i >= 0; i--) {
     var v = String(valores[i] === null || valores[i] === undefined ? "" : valores[i]).trim();
@@ -650,7 +666,9 @@ function resumirMaquinaActa(maquina, rondas, fallasPorId, vigente, ultimaProd) {
     productos.push(f[6]);
     lotesMp.push(f[8]);
     lotesBxa.push(f[9]);
-    ciclos.push(f[19]);
+    // Red de seguridad: una celda que quedo guardada como fecha se muestra de
+    // vuelta como numero, aunque todavia no se haya corrido la reparacion.
+    ciclos.push(medicionLegible(f[19]));
 
     if (estado === "Detenida") {
       var motivo = extraerMotivoDetencion(obs);
@@ -990,7 +1008,16 @@ function blindarColumnasMediciones() {
 
   var filas = Math.max(hoja.getMaxRows(), 5000);
   hoja.getRange(1, COL_MEDICIONES_INICIO, filas, COL_MEDICIONES_CANT).setNumberFormat("@");
-  Logger.log("Columnas de mediciones formateadas como texto. Listo.");
+  Logger.log("Inspecciones_Detalle: columnas Q a AC como texto.");
+
+  // La cabecera tambien guarda mediciones, en R a Y. De ahi sale el ciclo que
+  // usa el acta de traspaso, y era la unica hoja que habia quedado sin proteger.
+  var cab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inspecciones_Cabecera");
+  if (cab) {
+    cab.getRange(1, 18, Math.max(cab.getMaxRows(), 5000), 8).setNumberFormat("@");
+    Logger.log("Inspecciones_Cabecera: columnas R a Y como texto.");
+  }
+  Logger.log("Listo.");
 }
 
 
@@ -1005,23 +1032,52 @@ function blindarColumnasMediciones() {
  * Esto reescribe cientos de celdas y no tiene deshacer.
  */
 function repararMedicionesFecha() {
-  var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inspecciones_Detalle");
-  if (!hoja) { Logger.log("No existe Inspecciones_Detalle."); return; }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var total = 0;
+  total += repararRangoFechas(ss.getSheetByName("Inspecciones_Detalle"),
+                              COL_MEDICIONES_INICIO, COL_MEDICIONES_CANT, "Inspecciones_Detalle");
+
+  // R a Y de la cabecera: color, ciclo, peso y probador con sus estados. De aqui
+  // sale el ciclo que muestra el acta de traspaso.
+  total += repararRangoFechas(ss.getSheetByName("Inspecciones_Cabecera"),
+                              18, 8, "Inspecciones_Cabecera");
+
+  Logger.log("");
+  Logger.log("Total reparado: " + total + " celda(s).");
+  Logger.log("Revisar algunas filas a mano antes de dar por bueno el resultado.");
+  Logger.log("Las actas y consolidados YA generados no cambian: hay que volver a generarlos.");
+}
+
+
+/*
+ * Convierte de vuelta a numero las celdas que Sheets interpreto como fecha.
+ *
+ * La conversion original fue deterministica -"20.3" se guardo como 20 de marzo-
+ * asi que el camino inverso tambien lo es: dia + "." + mes.
+ *
+ * Solo se tocan celdas que HOY contienen una fecha. Cualquier cosa que ya sea
+ * texto o numero se respeta tal cual.
+ */
+function repararRangoFechas(hoja, colInicio, cantidad, nombre) {
+  if (!hoja) { Logger.log("No existe " + nombre + "."); return 0; }
 
   var ultima = hoja.getLastRow();
-  if (ultima < 2) { Logger.log("Sin datos."); return; }
+  if (ultima < 2) { Logger.log(nombre + ": sin datos."); return 0; }
 
-  var rango = hoja.getRange(2, COL_MEDICIONES_INICIO, ultima - 1, COL_MEDICIONES_CANT);
+  var rango = hoja.getRange(2, colInicio, ultima - 1, cantidad);
   var valores = rango.getValues();
   var reparadas = 0;
+  var ejemplos = [];
 
   for (var f = 0; f < valores.length; f++) {
     for (var c = 0; c < valores[f].length; c++) {
       var v = valores[f][c];
       if (!(v instanceof Date)) continue;
 
-      // dia.mes es como Sheets leyo el numero original.
+      var antes = v.toString().substring(0, 15);
       valores[f][c] = v.getDate() + "." + (v.getMonth() + 1);
+      if (ejemplos.length < 5) ejemplos.push(antes + "  ->  " + valores[f][c]);
       reparadas++;
     }
   }
@@ -1029,8 +1085,9 @@ function repararMedicionesFecha() {
   rango.setNumberFormat("@");
   rango.setValues(valores);
 
-  Logger.log("Mediciones reparadas: " + reparadas);
-  Logger.log("Revisar algunas filas a mano antes de dar por bueno el resultado.");
+  Logger.log(nombre + ": " + reparadas + " celda(s) reparada(s).");
+  for (var e = 0; e < ejemplos.length; e++) Logger.log("   " + ejemplos[e]);
+  return reparadas;
 }
 
 
@@ -2286,6 +2343,19 @@ function registrarDetencion(data) {
     data.observaciones_terreno || ""
   ]);
 
+  /*
+   * Mismo problema de fechas que en Inspecciones_Detalle, y aca pasaba
+   * desapercibido porque solo afecta a ALGUNOS valores.
+   *
+   * Sheets lee el punto como separador de fecha: un ciclo de "20.3" segundos se
+   * guarda como 20 de marzo y "31.10" como 31 de octubre. En cambio "32.25" y
+   * "30.13" sobreviven, porque no existe el mes 25 ni el 13. Por eso en el acta
+   * algunos ciclos salian bien y otros aparecian como una fecha larga.
+   *
+   * Columnas R a Y: las cuatro mediciones de terreno con su estado.
+   */
+  sheetCab.getRange(sheetCab.getLastRow(), 18, 1, 8).setNumberFormat("@");
+
   return {
     status: "success",
     id: data.idRonda,
@@ -3158,4 +3228,419 @@ function analisisCambiosHTML(rondas) {
 
   if (!lineas) return "";
   return '<div class="sec">ANÁLISIS DE CAMBIOS EN EL PROCESO</div>' + lineas;
+}
+
+
+/*
+ * ==========================================================================
+ * DIAGNOSTICO DE UN TURNO - ejecutar desde el editor
+ * ==========================================================================
+ *
+ * Responde, para una fecha y turno concretos, la pregunta que no se puede
+ * contestar mirando Drive: hubo rondas ese dia? en que estado quedaron? cuantos
+ * consolidados DEBERIAN existir?
+ *
+ * COMO USARLO
+ *   Editar las dos constantes de abajo y ejecutar diagnosticoTurno.
+ *   El turno se escribe exactamente "Turno Mañana" o "Turno Noche".
+ */
+function diagnosticoTurno() {
+
+  var FECHA = "2026-09-03";
+  var TURNO = "Turno Mañana";
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetCab = ss.getSheetByName("Inspecciones_Cabecera");
+  var ultima = sheetCab.getLastRow();
+  if (ultima < 2) { Logger.log("La cabecera esta vacia."); return; }
+
+  // C fechaHora, F maquina, M estado  (mismas columnas que usa el consolidado)
+  var bloque = sheetCab.getRange(2, 3, ultima - 1, 11).getValues();
+
+  var porMaquina = {};
+  var total = 0, cerradas = 0, pendientes = 0, detenidas = 0, canceladas = 0;
+
+  for (var i = 0; i < bloque.length; i++) {
+    if (!bloque[i][0]) continue;
+    var info = infoTurnoRapido(bloque[i][0]);
+    if (info.fechaOperativa !== FECHA || info.turno !== TURNO) continue;
+
+    var estado = String(bloque[i][10] || "").trim() || "Cerrada";
+    var maq = String(bloque[i][3] || "SIN_MAQUINA");
+
+    total++;
+    if (estado === "Cancelada") { canceladas++; continue; }
+    if (estado === "Detenida") detenidas++;
+    else if (estado === "Pendiente") pendientes++;
+    else cerradas++;
+
+    if (!porMaquina[maq]) porMaquina[maq] = { rondas: 0, detenciones: 0 };
+    if (estado === "Detenida") porMaquina[maq].detenciones++;
+    else porMaquina[maq].rondas++;
+  }
+
+  Logger.log("=== " + TURNO + " del " + FECHA + " ===");
+  Logger.log("Registros en la planilla: " + total);
+  Logger.log("   cerradas: " + cerradas + " | pendientes: " + pendientes +
+             " | detenciones: " + detenidas + " | canceladas: " + canceladas);
+
+  if (total === 0) {
+    Logger.log("");
+    Logger.log("No hay NINGUN registro con esa fecha operativa y ese turno.");
+    Logger.log("Probar con el otro turno, o revisar si las rondas quedaron");
+    Logger.log("con otra fecha operativa (el Turno Noche lleva la del dia que empezo).");
+    return;
+  }
+
+  var conConsolidado = 0, soloDetenciones = 0;
+  Logger.log("");
+  Logger.log("Por maquina:");
+  for (var m in porMaquina) {
+    var d = porMaquina[m];
+    if (d.rondas > 0) conConsolidado++; else soloDetenciones++;
+    Logger.log("   " + m + ": " + d.rondas + " ronda(s), " + d.detenciones + " detencion(es)" +
+               (d.rondas === 0 ? "   -> sin consolidado (solo detenciones)" : ""));
+  }
+
+  Logger.log("");
+  Logger.log("Consolidados que DEBERIAN existir: " + conConsolidado);
+  Logger.log("Maquinas sin consolidado por tener solo detenciones: " + soloDetenciones);
+  Logger.log("");
+  Logger.log("Si en Drive no hay consolidados de esta fecha, el turno nunca se");
+  Logger.log("llego a consolidar: se puede generar ahora desde la app eligiendo");
+  Logger.log("esta misma fecha y turno en el modal de generar PDF consolidado.");
+}
+
+
+/*
+ * Cuenta los consolidados que ya existen en Drive, agrupados por fecha y turno.
+ *
+ * Sirve para dos cosas: ver si falta un dia, y detectar duplicados. Un turno
+ * normal produce un PDF por maquina; si aparecen tres o cuatro veces esa
+ * cantidad, el turno se consolido varias veces (tipico cuando el navegador
+ * cortaba por tiempo y el inspector reintentaba).
+ */
+function diagnosticoConsolidados() {
+  var it = DriveApp.getFoldersByName("Inspecciones_PDF");
+  if (!it.hasNext()) { Logger.log("No existe la carpeta Inspecciones_PDF."); return; }
+
+  var archivos = it.next().getFilesByType(MimeType.PDF);
+  var conteo = {};
+  var porMaquinaFecha = {};
+  var revisados = 0;
+
+  while (archivos.hasNext() && revisados < 4000) {
+    var nombre = archivos.next().getName();
+    revisados++;
+
+    var m = nombre.replace(/\.pdf$/i, "")
+      .match(/^Consolidado_(.+?)_(\d{4}-\d{2}-\d{2})_(Turno[_\s].+)$/i);
+    if (!m) continue;
+
+    var clave = m[2] + "  " + m[3].replace(/_/g, " ");
+    conteo[clave] = (conteo[clave] || 0) + 1;
+
+    var claveDup = clave + " | " + m[1];
+    porMaquinaFecha[claveDup] = (porMaquinaFecha[claveDup] || 0) + 1;
+  }
+
+  var claves = Object.keys(conteo).sort().reverse();
+  Logger.log("Consolidados por fecha y turno (" + revisados + " archivos revisados):");
+  for (var k = 0; k < claves.length; k++) {
+    Logger.log("   " + claves[k] + "  ->  " + conteo[claves[k]] + " PDF");
+  }
+
+  Logger.log("");
+  Logger.log("Duplicados (misma maquina, mismo turno, mas de un PDF):");
+  var dup = 0;
+  for (var d in porMaquinaFecha) {
+    if (porMaquinaFecha[d] > 1) {
+      Logger.log("   " + d + "  ->  " + porMaquinaFecha[d] + " copias");
+      dup++;
+      if (dup >= 40) { Logger.log("   ... (hay mas)"); break; }
+    }
+  }
+  if (dup === 0) Logger.log("   ninguno.");
+}
+
+
+/*
+ * ==========================================================================
+ * GENERAR LAS ACTAS QUE FALTAN - ejecutar desde el editor
+ * ==========================================================================
+ *
+ * Recorre la planilla, arma la lista de turnos que tuvieron rondas y genera el
+ * acta de los que no la tienen todavia en Drive.
+ *
+ * TRES DECISIONES DE DISENO
+ *
+ *   No manda correos. Son actas de dias pasados: avisar ahora al area de un
+ *   turno de hace tres semanas solo genera ruido. Ademas, treinta correos de una
+ *   agotarian buena parte de la cuota diaria de Google.
+ *
+ *   No pisa lo que ya existe. Si el acta de ese turno ya esta en la carpeta, la
+ *   saltea. Se puede volver a ejecutar sin miedo a duplicar.
+ *
+ *   Trabaja de a tandas. Cada PDF se lleva varios segundos y Apps Script corta a
+ *   los seis minutos. Genera hasta MAX_POR_TANDA y avisa cuantas quedan: hay que
+ *   ejecutarla de nuevo hasta que diga que no falta ninguna.
+ *
+ * El jefe de turno y las observaciones quedan en blanco: nadie se acuerda de eso
+ * semanas despues, y un dato inventado es peor que un campo vacio.
+ */
+function generarActasFaltantes() {
+
+  var MAX_POR_TANDA = 8;
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetCab = ss.getSheetByName("Inspecciones_Cabecera");
+  var ultima = sheetCab.getLastRow();
+  if (ultima < 2) { Logger.log("La cabecera esta vacia."); return; }
+
+  // C fechaHora, F maquina, M estado
+  var bloque = sheetCab.getRange(2, 3, ultima - 1, 11).getValues();
+
+  // Turnos que tuvieron actividad real
+  var turnos = {};
+  for (var i = 0; i < bloque.length; i++) {
+    if (!bloque[i][0]) continue;
+    var estado = String(bloque[i][10] || "").trim() || "Cerrada";
+    if (estado === "Cancelada") continue;
+
+    var info = infoTurnoRapido(bloque[i][0]);
+    turnos[info.fechaOperativa + "|" + info.turno] = true;
+  }
+
+  // Actas que ya existen
+  var carpetas = DriveApp.getFoldersByName(ACTA_CARPETA);
+  var carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(ACTA_CARPETA);
+
+  var existentes = {};
+  var archivos = carpeta.getFilesByType(MimeType.PDF);
+  while (archivos.hasNext()) {
+    var m = archivos.next().getName().replace(/\.pdf$/i, "")
+      .match(/^Acta_Traspaso_(\d{4}-\d{2}-\d{2})_(Turno[_\s].+)$/i);
+    if (m) existentes[m[1] + "|" + m[2].replace(/_/g, " ")] = true;
+  }
+
+  // Faltantes, de la mas reciente a la mas antigua
+  var faltan = [];
+  for (var clave in turnos) if (!existentes[clave]) faltan.push(clave);
+  faltan.sort().reverse();
+
+  Logger.log("Turnos con actividad: " + Object.keys(turnos).length);
+  Logger.log("Actas ya existentes:  " + Object.keys(existentes).length);
+  Logger.log("Actas faltantes:      " + faltan.length);
+  Logger.log("");
+
+  if (faltan.length === 0) { Logger.log("No falta ninguna. Listo."); return; }
+
+  var generadas = 0;
+  for (var k = 0; k < faltan.length && generadas < MAX_POR_TANDA; k++) {
+    var partes = faltan[k].split("|");
+
+    var r = generarActaTraspaso({
+      fechaOperativa: partes[0],
+      turnoActual: partes[1],
+      inspector: "",
+      jefeTurno: "",
+      observaciones: "Acta generada de forma retroactiva.",
+      enviar: false          // sin correo: ver la nota de arriba
+    });
+
+    if (r.status === "success") {
+      Logger.log("OK   " + partes[0] + "  " + partes[1]);
+      generadas++;
+    } else {
+      Logger.log("FALLO " + partes[0] + "  " + partes[1] + "  ->  " + (r.message || r.status));
+    }
+  }
+
+  var restantes = faltan.length - generadas;
+  Logger.log("");
+  Logger.log("Generadas en esta tanda: " + generadas);
+  if (restantes > 0) {
+    Logger.log("Quedan " + restantes + ". Volver a ejecutar esta funcion hasta que no falte ninguna.");
+  } else {
+    Logger.log("No queda ninguna pendiente.");
+  }
+}
+
+
+/*
+ * Borra las actas duplicadas, dejando la mas reciente de cada turno.
+ *
+ * Los duplicados salen de generar el acta del mismo turno mas de una vez: el
+ * script crea un archivo nuevo cada vez en lugar de reemplazar. En el portal eso
+ * se ve como la misma acta repetida, y no hay forma de saber cual mirar.
+ *
+ * Los archivos van a la papelera de Drive, no se destruyen: si algo sale mal, se
+ * recuperan desde ahi.
+ */
+function limpiarActasDuplicadas() {
+  var carpetas = DriveApp.getFoldersByName(ACTA_CARPETA);
+  if (!carpetas.hasNext()) { Logger.log("No existe la carpeta " + ACTA_CARPETA + "."); return; }
+
+  var archivos = carpetas.next().getFilesByType(MimeType.PDF);
+  var porNombre = {};
+
+  while (archivos.hasNext()) {
+    var a = archivos.next();
+    var nombre = a.getName();
+    if (!porNombre[nombre]) porNombre[nombre] = [];
+    porNombre[nombre].push(a);
+  }
+
+  var borrados = 0;
+  for (var nombre in porNombre) {
+    var lista = porNombre[nombre];
+    if (lista.length < 2) continue;
+
+    // La mas reciente primero; el resto a la papelera.
+    lista.sort(function (x, y) { return y.getDateCreated() - x.getDateCreated(); });
+    for (var i = 1; i < lista.length; i++) {
+      lista[i].setTrashed(true);
+      borrados++;
+    }
+    Logger.log(nombre + ": " + lista.length + " copias, se conservo 1.");
+  }
+
+  Logger.log("");
+  Logger.log(borrados === 0 ? "No habia duplicados." : "Enviados a la papelera: " + borrados);
+}
+
+
+/*
+ * ==========================================================================
+ * REGENERAR LAS ACTAS YA EXISTENTES - ejecutar desde el editor
+ * ==========================================================================
+ *
+ * Un PDF no se puede editar: para corregir los ciclos que quedaron mostrados
+ * como fecha hay que volver a armar el acta desde los datos de la planilla.
+ *
+ * EJECUTAR DESPUES de repararMedicionesFecha. Si se corre antes, las actas
+ * nuevas salen con el mismo problema que las viejas.
+ *
+ * QUE SE PIERDE AL REGENERAR
+ *
+ *   Las observaciones generales que alguien escribio a mano en el acta original.
+ *   Ese texto nunca se guardo en la planilla: vivia solo dentro del PDF. Si
+ *   alguna acta tiene observaciones que importan, conviene abrirla y copiarlas
+ *   antes de regenerarla.
+ *
+ *   El jefe de turno de cada dia. La app guarda solo el ultimo usado, asi que
+ *   todas llevarian ese mismo nombre. Por eso USAR_JEFE_GUARDADO viene en false:
+ *   es preferible un campo vacio a un nombre que dice que estuvo alguien que
+ *   quizas no estuvo.
+ *
+ * QUE SE GANA
+ *
+ *   Los ciclos y demas mediciones salen con el valor real, y el acta refleja el
+ *   estado actual de la planilla, incluidas correcciones posteriores.
+ *
+ * El original va a la papelera de Drive, no se destruye.
+ */
+function regenerarActasExistentes() {
+
+  var MAX_POR_TANDA = 6;
+  var USAR_JEFE_GUARDADO = false;
+  var CLAVE_YA_HECHAS = "actas_regeneradas";
+
+  var carpetas = DriveApp.getFoldersByName(ACTA_CARPETA);
+  if (!carpetas.hasNext()) { Logger.log("No existe la carpeta " + ACTA_CARPETA + "."); return; }
+  var carpeta = carpetas.next();
+
+  /*
+   * Las ya regeneradas se anotan en Script Properties, no en el nombre del
+   * archivo.
+   *
+   * La primera version marcaba el nombre con un sufijo, y eso rompia el portal:
+   * su clasificador lee el turno como "todo lo que sigue a la fecha", asi que
+   * Acta_Traspaso_2026-09-16_Turno_Noche_r se habria mostrado con el turno
+   * "Turno Noche r". El registro interno no toca los archivos.
+   */
+  var props = PropertiesService.getScriptProperties();
+  var hechasAntes = {};
+  var crudo = props.getProperty(CLAVE_YA_HECHAS) || "";
+  if (crudo) {
+    var lista = crudo.split(";");
+    for (var z = 0; z < lista.length; z++) if (lista[z]) hechasAntes[lista[z]] = true;
+  }
+
+  var pendientes = [];
+  var archivos = carpeta.getFilesByType(MimeType.PDF);
+
+  while (archivos.hasNext()) {
+    var a = archivos.next();
+    var m = a.getName().replace(/\.pdf$/i, "")
+      .match(/^Acta_Traspaso_(\d{4}-\d{2}-\d{2})_(Turno[_\s].+)$/i);
+    if (!m) continue;
+
+    var turno = m[2].replace(/_/g, " ");
+    var clave = m[1] + "|" + turno;
+    if (hechasAntes[clave]) continue;
+
+    pendientes.push({ archivo: a, fecha: m[1], turno: turno, clave: clave });
+  }
+
+  // De la mas reciente a la mas antigua: son las que mas se consultan.
+  pendientes.sort(function (x, y) { return x.fecha < y.fecha ? 1 : -1; });
+
+  Logger.log("Actas sin regenerar: " + pendientes.length);
+  if (pendientes.length === 0) {
+    Logger.log("No queda ninguna. Listo.");
+    return;
+  }
+
+  var jefe = USAR_JEFE_GUARDADO ? (leerConfigActa().jefeTurno || "") : "";
+  var hechas = 0;
+
+  for (var i = 0; i < pendientes.length && hechas < MAX_POR_TANDA; i++) {
+    var p = pendientes[i];
+
+    var r = generarActaTraspaso({
+      fechaOperativa: p.fecha,
+      turnoActual: p.turno,
+      inspector: "",
+      jefeTurno: jefe,
+      observaciones: "Acta regenerada para corregir el formato de las mediciones.",
+      enviar: false
+    });
+
+    if (r.status !== "success") {
+      Logger.log("FALLO " + p.fecha + "  " + p.turno + "  ->  " + (r.message || r.status));
+      continue;
+    }
+
+    // La nueva ya quedo en la carpeta; la vieja se manda a la papelera.
+    p.archivo.setTrashed(true);
+    hechasAntes[p.clave] = true;
+    hechas++;
+    Logger.log("OK   " + p.fecha + "  " + p.turno);
+  }
+
+  // Se guarda al final de la tanda: si Apps Script corta por tiempo, lo peor que
+  // pasa es repetir una, y repetir es inofensivo.
+  props.setProperty(CLAVE_YA_HECHAS, Object.keys(hechasAntes).join(";"));
+
+  var restan = pendientes.length - hechas;
+  Logger.log("");
+  Logger.log("Regeneradas en esta tanda: " + hechas);
+  if (restan > 0) {
+    Logger.log("Quedan " + restan + ". Volver a ejecutar hasta que diga que no queda ninguna.");
+  } else {
+    Logger.log("No queda ninguna pendiente.");
+  }
+}
+
+
+/*
+ * Olvida el registro de actas ya regeneradas.
+ *
+ * Solo hace falta si en el futuro se quiere volver a regenerar todo desde cero,
+ * por ejemplo tras otra correccion de datos.
+ */
+function reiniciarRegistroRegeneradas() {
+  PropertiesService.getScriptProperties().deleteProperty("actas_regeneradas");
+  Logger.log("Registro borrado. La proxima ejecucion va a tomar todas las actas de nuevo.");
 }
