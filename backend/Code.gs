@@ -1527,20 +1527,65 @@ function leerDetalleDeRondas(sheetDet, idsNecesarios) {
  * el mismo numero. Con la cola offline de A6 esto dejo de ser hipotetico: al volver
  * la señal se disparan varios envios seguidos.
  */
+/*
+ * Acciones que toman el bloqueo global del script.
+ *
+ * SOLO las que MODIFICAN la planilla. El bloqueo existe para que dos escrituras
+ * simultaneas no se pisen; no tiene nada que ver con generar archivos.
+ *
+ * POR QUE SE SACARON cerrarTurno, generarConsolidado y generarActa
+ *
+ *   Esas tres no escriben una sola celda: leen la planilla y crean PDFs en Drive.
+ *   Pero retenian el bloqueo durante TODA la operacion, y cerrar un turno genera
+ *   un PDF por maquina: con quince maquinas son varios minutos.
+ *
+ *   Durante esos minutos, cualquier inspector que intentara guardar una ronda
+ *   desde cualquier tablet esperaba diez segundos, recibia "servidor ocupado",
+ *   se encolaba, reintentaba a los veinte segundos y volvia a chocar con el
+ *   mismo bloqueo. De ahi las esperas de diez minutos entre maquina y maquina,
+ *   las rondas que no llegaban a laboratorio y los registros que quedaban en
+ *   cola: una sola persona cerrando el turno dejaba a todas las demas paradas.
+ *
+ *   Sacarlas del bloqueo no crea riesgo de datos: como no escriben, no hay nada
+ *   que se pueda pisar. Lo unico que podria pasar es que un consolidado se
+ *   genere en el mismo instante en que entra una ronda nueva y esa ronda no
+ *   aparezca en ese PDF, lo cual ya pasaba antes y se resuelve regenerandolo.
+ */
 var ACCIONES_CON_ESCRITURA = {
-  generarActa: true,
   guardarConfigActa: true,
   crearRonda: true,
   cerrarRonda: true,
   cancelarRonda: true,
-  registrarDetencion: true,
-  cerrarTurno: true,
-  generarConsolidado: true
+  registrarDetencion: true
 };
 
 var LOCK_ESPERA_MS = 10000;
 
+/*
+ * Serializa la respuesta, garantizando que SIEMPRE lleve un status.
+ *
+ * Se vieron respuestas que llegaban al navegador como "null": JSON valido, pero
+ * sin status ni message. La app solo podia decir "el servidor rechazo la
+ * operacion" sin explicar nada, y quedaba imposible de diagnosticar.
+ *
+ * Eso ocurre cuando una funcion del router devuelve null o undefined, sea por un
+ * camino no previsto o porque Apps Script corto la ejecucion. En vez de dejar
+ * pasar un cuerpo vacio, se responde un error explicito.
+ */
 function respuestaJSON(objeto) {
+  if (objeto === null || objeto === undefined) {
+    objeto = {
+      status: "error",
+      message: "El servidor terminó la operación sin devolver un resultado. " +
+               "El registro NO se guardó. Reintentar."
+    };
+  } else if (!objeto.status) {
+    objeto.status = "error";
+    if (!objeto.message) {
+      objeto.message = "Respuesta incompleta del servidor. El registro NO se guardó.";
+    }
+  }
+
   return ContentService.createTextOutput(JSON.stringify(objeto))
     .setMimeType(ContentService.MimeType.JSON);
 }

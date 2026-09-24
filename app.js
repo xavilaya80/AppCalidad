@@ -1980,6 +1980,17 @@ async function enviarAlBackend(payload) {
     return { ok: false, message: 'Respuesta ilegible del servidor:\n' + String(texto).slice(0, 150) };
   }
 
+  // Un cuerpo "null" parsea sin error y no es ni un exito ni un error con
+  // mensaje: se nombra explicitamente para no volver a quedarse sin pista.
+  if (datos === null) {
+    return {
+      ok: false,
+      reintentable: true,
+      message: 'El servidor respondió vacío. No se pudo confirmar si quedó guardado.\n\n' +
+               'Suele pasar cuando el servidor está sobrecargado. Se reintentará solo.'
+    };
+  }
+
   if (!datos || datos.status !== 'success') {
     return {
       ok: false,

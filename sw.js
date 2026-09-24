@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calidad-proceso-v2026-fix-33';
+const CACHE_NAME = 'calidad-proceso-v2026-fix-34';
 
 // Nunca se interceptan: la app necesita que un fallo de red SEA un fallo de red.
 const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
@@ -7,11 +7,11 @@ const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
 const ASSETS_LOCALES = [
   './',
   'index.html',
-  // Con la version en la URL: index.html pide 'app.js?v=33', y cache.match compara
+  // Con la version en la URL: index.html pide 'app.js?v=34', y cache.match compara
   // la URL COMPLETA. Si aca se guardara 'app.js' a secas, la peticion no
   // encontraria nada en cache y la app quedaria inservible sin señal.
-  'styles.css?v=33',
-  'app.js?v=33',
+  'styles.css?v=34',
+  'app.js?v=34',
   'manifest.json',
   // Sin estos, al abrir la app instalada sin red el icono y el splash quedaban en blanco.
   'icons/icon-192.png',
