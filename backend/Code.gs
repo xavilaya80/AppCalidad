@@ -38,24 +38,16 @@ function getInfoTurnoOperativo(fechaObj) {
  * los 30 s. Con esta ventana el costo deja de crecer con la antiguedad.
  */
 /*
- * Bajado de 7 a 3 dias.
+ * Dias de historial que devuelve doGet.
  *
- * Esta ventana define el tamaño de la respuesta de doGet, y doGet se vuelve a
- * llamar DESPUES DE CADA GUARDADO para refrescar la pantalla. Con 7 dias la
- * respuesta traia unas 140 rondas, cada una con su detalle por cavidad, mas el
- * catalogo completo de productos con sus tolerancias: varios megabytes por una
- * red de planta, en cada ronda. Esa recarga, no el guardado, era la mayor parte
- * de la espera.
+ * Define el tamaño de la respuesta, y doGet se vuelve a llamar despues de cada
+ * guardado: a mayor ventana, mas datos viajan en cada ronda.
  *
- * Que NO se pierde: las rondas Pendientes viajan siempre, sin importar su
- * antiguedad, asi que el laboratorio nunca deja de ver lo que tiene que ensayar.
- * Lo que se acorta es el historial de consulta y los turnos que aparecen en el
- * modal de cierre (siguen siendo 6, suficiente para cerrar el turno propio).
- *
- * Si alguna vez hace falta mirar mas atras, subir este numero y volver a
- * desplegar: es el unico lugar que hay que tocar.
+ * Queda en 7 porque es lo que el area necesita ver. Si alguna vez la carga se
+ * vuelve pesada, este es el primer numero a mirar, pero es una decision del area,
+ * no una optimizacion para hacer por detras.
  */
-var DIAS_HISTORIAL = 3;
+var DIAS_HISTORIAL = 7;
 var MAX_HISTORIAL = 800;
 
 /*
@@ -68,21 +60,17 @@ var MAX_HISTORIAL = 800;
 var MAX_DESVIACIONES = 1500;
 
 /*
- * C3: variables que se grafican por cavidad, y su posicion en MEDICIONES_ORDEN.
+ * VARIABLES_GRAFICO se retiro junto con la pestaña de Analisis, que paso al
+ * Portal Calidad. Definia que tres mediciones se graficaban por cavidad.
  *
- * Van solo tres. Mandar las trece multiplicaria el peso de la respuesta para
- * graficar cosas que no son numericas (color, calce, caida) o que nadie sigue
- * en el tiempo. Con moldes de 24 cavidades la diferencia no es menor.
+ * Cuando el portal arme sus graficos, va a leer Inspecciones_Detalle
+ * directamente: ahi estan las trece mediciones completas de cada cavidad.
  */
-var VARIABLES_GRAFICO = [
-  { clave: "peso",    idx: 3 },
-  { clave: "ciclo",   idx: 2 },
-  { clave: "espesor", idx: 1 }
-];
+
 
 // Tope de rondas que llevan el detalle por cavidad. La ventana de B4 son 7 dias
 // (unas 40 rondas en operacion normal), asi que rara vez se toca.
-var MAX_RONDAS_GRAFICO = 200;   // tope de seguridad; lo que se deja fuera se informa
+// MAX_RONDAS_GRAFICO se retiro: acotaba cuantas rondas llevaban detalle por\n// cavidad en la respuesta, y ese detalle ya no viaja.
 
 var TURNOS_VALIDOS = ["Turno Mañana", "Turno Noche"];
 
@@ -1202,7 +1190,6 @@ function doGet(e) {
   var cavidadBasePorId = {}; // numero de la cavidad representativa elegida
   var terrenoPorId = {};     // chequeo de terreno cavidad por cavidad
   var fallasPorId = {};      // C2: que cavidad fallo y en que variable
-  var valoresPorId = {};     // C3: [cavidad, peso, ciclo, espesor] por cavidad
 
   for (var d = 0; d < dataDet.length; d++) {
     if (!dataDet[d][1]) continue;
@@ -1234,15 +1221,14 @@ function doGet(e) {
       fallasPorId[idDet].push({ cavidad: nroCav, fallas: fallasCav });
     }
 
-    // C3: los valores medidos de esta cavidad, como tupla compacta.
-    // Un arreglo en vez de un objeto: son ~4 veces menos bytes por cavidad y
-    // esto se repite por cada cavidad de cada ronda de la ventana.
-    var tupla = [nroCav];
-    for (var vg = 0; vg < VARIABLES_GRAFICO.length; vg++) {
-      tupla.push(aNumero(dataDet[d][16 + VARIABLES_GRAFICO[vg].idx]));
-    }
-    if (!valoresPorId[idDet]) valoresPorId[idDet] = [];
-    valoresPorId[idDet].push(tupla);
+    /*
+     * Aqui se armaba la tupla de valores por cavidad para el grafico.
+     *
+     * Se saco junto con porCavidad: ya nadie la consume, y se calculaba una vez
+     * por CADA cavidad de CADA ronda de la ventana. Con siete dias eso son
+     * varios miles de iteraciones inutiles en cada consulta del historial, que
+     * es la peticion que mas se repite.
+     */
 
     // Como resumen para el historial se usa siempre la cavidad mas baja.
     if (cavidadBasePorId[idDet] !== undefined && nroCav >= cavidadBasePorId[idDet]) continue;
@@ -1330,14 +1316,21 @@ function doGet(e) {
       }
       historial.push(base);
 
-      // C3: valores por cavidad para el grafico, en las rondas mas recientes.
-      // alcance.filas viene ordenado, asi que las ultimas son las recientes.
-      if (historial.length <= MAX_RONDAS_GRAFICO || alcance.filas.length - f <= MAX_RONDAS_GRAFICO) {
-        var vals = valoresPorId[idInspeccion];
-        if (vals) {
-          base.porCavidad = vals.slice().sort(function (x, y) { return x[0] - y[0]; });
-        }
-      }
+      /*
+       * Aqui viajaba porCavidad: el detalle de las 13 mediciones de CADA cavidad,
+       * para las 200 rondas mas recientes.
+       *
+       * Solo lo consumia la pestaña de Analisis, que se movio al Portal Calidad.
+       * Mientras tanto, ese arreglo se enviaba en CADA carga del historial, o sea
+       * despues de cada guardado de ronda: con siete dias, unas 600 rondas y
+       * hasta 24 cavidades cada una, la respuesta llegaba a varios megabytes.
+       * Apps Script no alcanzaba a servirla y devolvia "No se pudo abrir el
+       * archivo", que en la app se veia como historial que no carga y guardados
+       * que tardan minutos.
+       *
+       * El dato no se perdio: sigue completo en Inspecciones_Detalle y en los
+       * PDF por cavidad. El portal lo va a leer de ahi cuando haga falta.
+       */
 
       // C2: las cavidades que fallaron en esta ronda.
       var fallasRonda = fallasPorId[idInspeccion];
@@ -1376,8 +1369,6 @@ function doGet(e) {
     pendientes: pendientes,
     desviaciones: desviaciones,
     desviacionesTruncadas: desviacionesTruncadas,
-    // C3: orden de los valores dentro de cada tupla de porCavidad.
-    variablesGrafico: VARIABLES_GRAFICO.map(function (v) { return v.clave; }),
     resumenTurnos: resumenTurnos,
     configActa: leerConfigActa(),
     // La tablet necesita saber que maquinas estan detenidas AHORA para poder

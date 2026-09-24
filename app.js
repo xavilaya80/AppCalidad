@@ -17,7 +17,6 @@ let metaHistorial = { dias: 7, desde: '', truncado: 0 };   // ventana que envió
 let filasHistorialVisibles = 0;                            // paginado del render
 let html5QrCode = null;
 let currentRondaId = null;
-let chartTendenciaInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
@@ -250,10 +249,6 @@ function limpiarInterfazSesion() {
   const nota = document.getElementById('historial-nota');
   if (nota) nota.innerText = '';
 
-  if (chartTendenciaInstance) { chartTendenciaInstance.destroy(); chartTendenciaInstance = null; }
-  const selAnalisis = document.getElementById('select-analisis-producto');
-  if (selAnalisis) selAnalisis.value = '';
-
   // Un modal abierto -o peor, la camara encendida- sobrevivia al relevo.
   ['turno-modal', 'cola-modal'].forEach(id => {
     const m = document.getElementById(id);
@@ -391,7 +386,6 @@ function setupNavigation() {
 
       if (tab.dataset.target === 'view-historial') renderHistorialInspector();
       if (tab.dataset.target === 'view-borradores') renderPendientes();
-      if (tab.dataset.target === 'view-analisis') renderAnalisis();
       if (tab.dataset.target === 'view-nueva') actualizarModoFormulario();
     });
   });
@@ -557,9 +551,10 @@ function claseToggle(estado) {
  * Nada bloquea el guardado en ningun caso.
  * =================================================================== */
 
-// Las tolerancias del producto ya no se usan en el formulario de inspeccion.
-// Siguen leyendose del backend para los graficos de analisis (ver limitesAnalisis),
-// pero ni se muestran junto a los campos ni influyen en Cumple / No Cumple.
+// Las tolerancias del producto ya no se usan en el formulario de inspeccion: ni
+// se muestran junto a los campos ni influyen en Cumple / No Cumple. Se siguen
+// recibiendo del backend porque las consume el Portal Calidad, que es donde
+// viven ahora los graficos de analisis.
 
 function numeroDeTexto(txt) {
   const s = String(txt || '').trim().replace(',', '.');
@@ -1639,12 +1634,6 @@ function setupEventListeners() {
     if (mensaje) alert(mensaje);           // fuera del finally: no bloquea el reset del boton
   });
 
-  // C3: los tres selectores del analisis repintan el mismo grafico.
-  ['select-analisis-producto', 'select-analisis-cavidad', 'select-analisis-variable']
-    .forEach(id => {
-      const sel = document.getElementById(id);
-      if (sel) sel.addEventListener('change', renderAnalisis);
-    });
 }
 
 // TOGGLE DE 3 ESTADOS: Cumple -> No Cumple -> No Aplica -> Cumple
@@ -2586,7 +2575,6 @@ async function loadCatalogData() {
     renderHistorialInspector();
     renderPendientes();
     actualizarContadorBorradores();
-    poblarSelectAnalisis();
     return true;
   } catch (err) {
     // Antes esto quedaba solo en la consola y el inspector veia listas vacias sin
@@ -3207,262 +3195,20 @@ function setupModalTurno() {
 function cerrarTurno() { abrirModalTurno('cerrar'); }
 function generarConsolidado() { abrirModalTurno('consolidar'); }
 
-function poblarSelectAnalisis() {
-  const sel = document.getElementById('select-analisis-producto');
-  if (!sel) return;
-  const seleccionActual = sel.value;
-  sel.innerHTML = '<option value="">-- Selecciona un producto --</option>' +
-    productosCache.map(p =>
-      `<option value="${escapeHTML(p.id)}">${escapeHTML(p.nombre)}</option>`).join('');
-  if (seleccionActual) sel.value = seleccionActual;
-}
-
-/* ===================================================================
- * TENDENCIA POR CAVIDAD (C3)
- *
- * El grafico anterior mostraba el peso y el ciclo de la ronda, tomados de la
- * cavidad mas baja. Con un molde de 24 eso es una muestra de 1 en 24: una
- * cavidad que se va no aparece, y el promedio del molde tampoco.
- *
- * Ahora se elige cavidad y variable, y se dibujan los limites de la
- * especificacion. Con los limites a la vista deja de ser una curva bonita y
- * pasa a ser una carta de control: se ve la deriva ANTES de que un valor caiga
- * fuera de rango.
- *
- * Por que una variable a la vez y no las tres juntas: peso (~23 g), ciclo
- * (~12 s) y espesor (~1.3 mm) no comparten escala. Superponerlas obliga a
- * varios ejes y, sobre todo, a seis lineas de limite; el grafico deja de
- * leerse justo en lo que importa. Se cambia de variable con el selector.
- * =================================================================== */
-
-// idx es la posicion dentro de la tupla [cavidad, peso, ciclo, espesor] que
-// manda el backend; spec es la variable de Productos_Specs con sus limites.
-const VARIABLES_ANALISIS = [
-  { clave: 'peso',    idx: 1, label: 'Peso (g)',     spec: 'peso',    color: '#0284c7' },
-  { clave: 'ciclo',   idx: 2, label: 'Ciclo (s)',    spec: 'ciclo',   color: '#f59e0b' },
-  { clave: 'espesor', idx: 3, label: 'Espesor (mm)', spec: 'espesor', color: '#a78bfa' }
-];
-
-const MAX_PUNTOS_ANALISIS = 30;
-
-// Rondas cerradas del producto, de la mas antigua a la mas reciente.
-function rondasAnalisis(producto) {
-  return historialCache
-    .filter(r => r.producto === producto && r.estado === 'Cerrada')
-    .slice()
-    .sort((a, b) => String(a.fechaHora).localeCompare(String(b.fechaHora)))
-    .slice(-MAX_PUNTOS_ANALISIS);
-}
-
-// Cuantas cavidades llegó a tener este producto en la ventana cargada.
-function maxCavidadesProducto(producto) {
-  let max = 1;
-  historialCache.forEach(r => {
-    if (r.producto !== producto) return;
-    max = Math.max(max, parseInt(r.cavidadMolde, 10) || 1);
-    (r.porCavidad || []).forEach(t => { max = Math.max(max, Number(t[0]) || 1); });
-  });
-  return max;
-}
-
 /*
- * Series a graficar.
- *   cavidad = ''  -> promedio del molde, mas la banda minimo/maximo entre
- *                    cavidades. Esa banda es el dato util: si se abre, el
- *                    molde esta desbalanceado aunque el promedio siga centrado.
- *   cavidad = N   -> solo esa cavidad.
+ * La pestaña de Analisis se movio al Portal Calidad.
+ *
+ * Por que: sus graficos necesitaban el detalle por cavidad de cada ronda, y ese
+ * dato viajaba en CADA carga del historial, o sea despues de cada guardado. Con
+ * siete dias y 24 cavidades por ronda la respuesta llegaba a varios megabytes, y
+ * Apps Script no lograba servirla: de ahi el "No se pudo actualizar el historial"
+ * y los guardados que tardaban minutos.
+ *
+ * Ademas, analizar tendencias es trabajo de escritorio, no de terreno: se hace
+ * sentado y con pantalla grande, no parado frente a una maquina.
+ *
+ * El codigo original quedo conservado para rearmarlo en el portal.
  */
-function serieAnalisis(rondas, cavidad, idx) {
-  const promedio = [], minimos = [], maximos = [];
-  const cav = cavidad === '' ? null : Number(cavidad);
-
-  rondas.forEach(r => {
-    const tuplas = Array.isArray(r.porCavidad) ? r.porCavidad : [];
-
-    if (cav !== null) {
-      const t = tuplas.find(x => Number(x[0]) === cav);
-      const v = t ? t[idx] : null;
-      promedio.push(typeof v === 'number' ? v : null);
-      minimos.push(null);
-      maximos.push(null);
-      return;
-    }
-
-    const vals = tuplas.map(t => t[idx]).filter(v => typeof v === 'number');
-    if (vals.length === 0) {
-      promedio.push(null); minimos.push(null); maximos.push(null);
-      return;
-    }
-    const suma = vals.reduce((a, b) => a + b, 0);
-    promedio.push(Math.round((suma / vals.length) * 1000) / 1000);
-    minimos.push(Math.min.apply(null, vals));
-    maximos.push(Math.max.apply(null, vals));
-  });
-
-  return { promedio, minimos, maximos };
-}
-
-// Limites del producto para una variable, o null si no hay.
-function limitesAnalisis(producto, spec) {
-  const p = productosCache.find(x => x.id === producto || x.nombre === producto);
-  const t = p && p.tolerancias ? p.tolerancias[spec] : null;
-  if (!t) return null;
-  const min = (t.min === null || t.min === undefined) ? null : Number(t.min);
-  const max = (t.max === null || t.max === undefined) ? null : Number(t.max);
-  const nominal = (t.nominal === null || t.nominal === undefined) ? null : Number(t.nominal);
-  if (min === null && max === null && nominal === null) return null;
-  return { min, max, nominal };
-}
-
-// El selector de cavidad se arma con lo que el producto realmente tuvo.
-function poblarSelectCavidades(producto) {
-  const sel = document.getElementById('select-analisis-cavidad');
-  if (!sel) return;
-
-  const previo = sel.value;
-
-  if (!producto) {
-    sel.innerHTML = '<option value="">Todas</option>';
-    sel.disabled = true;
-    return;
-  }
-
-  const max = maxCavidadesProducto(producto);
-  let html = '<option value="">Todas las cavidades</option>';
-  for (let c = 1; c <= max; c++) html += `<option value="${c}">Cavidad ${c}</option>`;
-  sel.innerHTML = html;
-  sel.disabled = false;
-
-  // Se conserva la cavidad elegida si el producto nuevo la tiene: cambiar de
-  // producto no deberia sacarte de la cavidad que estabas siguiendo.
-  if (previo && Number(previo) <= max) sel.value = previo;
-}
-
-function renderAnalisis() {
-  const selProd = document.getElementById('select-analisis-producto');
-  const selCav = document.getElementById('select-analisis-cavidad');
-  const selVar = document.getElementById('select-analisis-variable');
-  const nota = document.getElementById('analisis-nota');
-  const leyenda = document.getElementById('analisis-leyenda');
-  if (!selProd) return;
-
-  const producto = selProd.value;
-  poblarSelectCavidades(producto);
-  if (selVar) selVar.disabled = !producto;
-
-  const limpiar = (msg) => {
-    if (chartTendenciaInstance) { chartTendenciaInstance.destroy(); chartTendenciaInstance = null; }
-    if (nota) nota.innerText = msg || '';
-    if (leyenda) leyenda.innerText = '';
-  };
-
-  if (!producto) {
-    limpiar('Elige un producto para ver su tendencia.');
-    return;
-  }
-
-  const variable = VARIABLES_ANALISIS.find(v => v.clave === (selVar ? selVar.value : 'peso'))
-                   || VARIABLES_ANALISIS[0];
-  const cavidad = selCav ? selCav.value : '';
-  const rondas = rondasAnalisis(producto);
-
-  if (rondas.length === 0) {
-    limpiar('No hay rondas cerradas de este producto en los últimos ' +
-            metaHistorial.dias + ' días.');
-    return;
-  }
-
-  const serie = serieAnalisis(rondas, cavidad, variable.idx);
-  const conDato = serie.promedio.filter(v => v !== null).length;
-
-  if (conDato === 0) {
-    limpiar(`No hay mediciones de ${variable.label.toLowerCase()} ` +
-            (cavidad ? `en la cavidad ${cavidad} ` : '') +
-            `en las últimas ${rondas.length} ronda(s).`);
-    return;
-  }
-
-  if (typeof Chart === 'undefined') return;   // sin la libreria no hay grafico
-
-  const etiquetas = rondas.map(r => String(r.fechaHora).slice(5, 16));
-  const lim = limitesAnalisis(producto, variable.spec);
-  const constante = (v) => (v === null ? null : etiquetas.map(() => v));
-
-  const datasets = [{
-    label: cavidad ? `${variable.label} · cavidad ${cavidad}` : `${variable.label} · promedio del molde`,
-    data: serie.promedio,
-    borderColor: variable.color,
-    backgroundColor: variable.color + '26',
-    borderWidth: 2,
-    tension: 0.2,
-    spanGaps: true
-  }];
-
-  if (!cavidad) {
-    datasets.push(
-      { label: 'Mínimo entre cavidades', data: serie.minimos, borderColor: '#64748b',
-        borderWidth: 1, borderDash: [3, 3], pointRadius: 0, tension: 0.2, spanGaps: true },
-      { label: 'Máximo entre cavidades', data: serie.maximos, borderColor: '#64748b',
-        borderWidth: 1, borderDash: [3, 3], pointRadius: 0, tension: 0.2, spanGaps: true }
-    );
-  }
-
-  if (lim) {
-    if (lim.max !== null) datasets.push({
-      label: `Límite superior (${lim.max})`, data: constante(lim.max),
-      borderColor: '#dc2626', borderWidth: 2, borderDash: [6, 4], pointRadius: 0, fill: false
-    });
-    if (lim.min !== null) datasets.push({
-      label: `Límite inferior (${lim.min})`, data: constante(lim.min),
-      borderColor: '#dc2626', borderWidth: 2, borderDash: [6, 4], pointRadius: 0, fill: false
-    });
-    if (lim.nominal !== null) datasets.push({
-      label: `Nominal (${lim.nominal})`, data: constante(lim.nominal),
-      borderColor: '#4ade80', borderWidth: 1, borderDash: [2, 4], pointRadius: 0, fill: false
-    });
-  }
-
-  const lienzo = document.getElementById('chartTendencia');
-  if (!lienzo || !lienzo.getContext) return;
-  if (chartTendenciaInstance) chartTendenciaInstance.destroy();
-
-  chartTendenciaInstance = new Chart(lienzo.getContext('2d'), {
-    type: 'line',
-    data: { labels: etiquetas, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { labels: { color: '#cbd5e1', boxWidth: 14, font: { size: 11 } } } },
-      scales: {
-        y: { title: { display: true, text: variable.label, color: '#94a3b8' },
-             ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-        x: { ticks: { color: '#94a3b8', maxRotation: 60, minRotation: 45, font: { size: 9 } },
-             grid: { color: '#1e293b' } }
-      }
-    }
-  });
-
-  if (nota) {
-    nota.innerText = `Últimas ${rondas.length} ronda(s) cerradas` +
-      (cavidad ? ` · cavidad ${cavidad}` : ' · promedio de todas las cavidades') + '.';
-  }
-
-  if (leyenda) {
-    if (!lim) {
-      leyenda.innerText = '⚠️ Este producto no tiene límites cargados en Productos_Specs, ' +
-                          'así que el gráfico va sin líneas de referencia.';
-      leyenda.className = 'analisis-leyenda analisis-leyenda-aviso';
-    } else {
-      const fuera = serie.promedio.filter(v => v !== null &&
-        ((lim.min !== null && v < lim.min) || (lim.max !== null && v > lim.max))).length;
-      leyenda.className = 'analisis-leyenda' + (fuera > 0 ? ' analisis-leyenda-aviso' : '');
-      leyenda.innerText = fuera > 0
-        ? `⚠️ ${fuera} de ${conDato} punto(s) fuera de especificación.`
-        : `✅ Los ${conDato} puntos están dentro de especificación.`;
-    }
-  }
-}
 
 function startQRScanner() {
   document.getElementById('qr-modal').style.display = 'flex'; html5QrCode = new Html5Qrcode("reader");
