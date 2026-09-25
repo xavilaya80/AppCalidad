@@ -1943,7 +1943,38 @@ async function enviarAlBackend(payload) {
   }
 
   if (!respuesta.ok) {
-    return { ok: false, message: `El servidor respondió ${respuesta.status} ${respuesta.statusText}. El registro NO se guardó.` };
+    /*
+     * Un error HTTP casi nunca es culpa del registro: es el servidor que en ese
+     * instante no esta disponible.
+     *
+     * El caso concreto que se vio en planta: al publicar una version nueva del
+     * backend, Apps Script deja la URL sin responder unos segundos y devuelve
+     * 404. Una tablet que enviaba justo en esa ventana recibia "el registro NO se
+     * guardo", el inspector perdia la ronda entera y tenia que cargarla de nuevo,
+     * cuando alcanzaba con esperar medio minuto.
+     *
+     * Estos codigos se tratan como transitorios y el registro se encola:
+     *   404  la URL no responde (tipico durante un redespliegue)
+     *   408  el servidor corto por tiempo
+     *   429  demasiadas peticiones seguidas
+     *   500, 502, 503, 504  fallas del lado de Google
+     *
+     * El resto (401, 403 y similares) si indica un problema real de permisos o
+     * de la peticion, y ahi reintentar no tiene sentido.
+     */
+    const TRANSITORIOS = [404, 408, 429, 500, 502, 503, 504];
+    const transitorio = TRANSITORIOS.indexOf(respuesta.status) !== -1;
+
+    return {
+      ok: false,
+      sinRed: transitorio,      // encola en vez de dar el registro por perdido
+      reintentable: transitorio,
+      message: transitorio
+        ? `El servidor no está disponible en este momento (error ${respuesta.status}). ` +
+          `Suele pasar mientras se publica una actualización.\n\n` +
+          `El registro quedó guardado en la tablet y se envía solo en unos segundos.`
+        : `El servidor respondió ${respuesta.status} ${respuesta.statusText}. El registro NO se guardó.`
+    };
   }
 
   let texto;
