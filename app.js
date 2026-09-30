@@ -2602,8 +2602,15 @@ function setupEstadoConexion() {
 let datosCargadosAlgunaVez = false;
 
 const HTTP_TRANSITORIOS_GET = [404, 408, 429, 500, 502, 503, 504];
-const REINTENTOS_CARGA = 3;
-const TIMEOUT_CARGA_MS = 30000;
+/*
+ * Dos intentos de 20 s: un fallo se resuelve en menos de 45 s en total.
+ *
+ * Estaba en tres intentos de 30 s, y eso significaba que una consulta condenada
+ * al fracaso dejaba el boton en "Actualizando..." por mas de minuto y medio antes
+ * de avisar. Para una pantalla que el inspector mira esperando, es demasiado.
+ */
+const REINTENTOS_CARGA = 2;
+const TIMEOUT_CARGA_MS = 20000;
 
 const pausa = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -2670,7 +2677,30 @@ async function fetchConTimeout(url, ms) {
   }
 }
 
-async function loadCatalogData() {
+/*
+ * Consulta en curso, si hay alguna.
+ *
+ * Hay una docena de lugares que piden actualizar los datos: al cerrar una ronda,
+ * al sincronizar la cola, al volver la conexion, al tocar el boton. Varios se
+ * disparan casi al mismo tiempo despues de un guardado.
+ *
+ * Sin esta guardia salian varias consultas simultaneas contra el mismo servidor:
+ * competian entre si, algunas se pasaban de tiempo, y el inspector veia los datos
+ * cargados Y un aviso de que no se pudo actualizar. Ahora la segunda llamada se
+ * engancha a la que ya esta en curso en vez de abrir otra.
+ */
+let cargaEnCurso = null;
+
+function loadCatalogData() {
+  if (cargaEnCurso) return cargaEnCurso;
+
+  cargaEnCurso = ejecutarCargaCatalogo()
+    .finally(() => { cargaEnCurso = null; });
+
+  return cargaEnCurso;
+}
+
+async function ejecutarCargaCatalogo() {
   for (let intento = 1; intento <= REINTENTOS_CARGA; intento++) {
     const ultimo = (intento === REINTENTOS_CARGA);
     try {
