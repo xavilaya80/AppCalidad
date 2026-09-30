@@ -834,8 +834,10 @@ function generarActaTraspaso(data) {
   blob.setName(nombre);
 
   var carpetas = DriveApp.getFoldersByName(ACTA_CARPETA);
-  var carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(ACTA_CARPETA);
-  var archivo = carpeta.createFile(blob);
+  var raiz = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(ACTA_CARPETA);
+
+  // Va a Actas_Traspaso/aaaa/mm y reemplaza la version anterior del mismo turno.
+  var archivo = guardarPDFEnMes(raiz, fecha, blob);
   archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
   var resultado = {
@@ -1122,6 +1124,64 @@ function diagnosticoCorreo() {
   }
 }
 
+
+/*
+ * ============================================================
+ * HUELLA DEL CATALOGO
+ * ============================================================
+ *
+ * Maquinas, productos y operarios cambian una vez al mes, pero viajaban enteros
+ * en CADA consulta, o sea despues de cada guardado de ronda. Con un centenar de
+ * productos y sus fichas completas, eso es la mayor parte del peso de la
+ * respuesta, enviado una y otra vez para traer exactamente lo mismo.
+ *
+ * COMO FUNCIONA
+ *
+ *   La tablet manda la huella de lo que ya tiene. El servidor calcula la huella
+ *   actual y compara: si es la misma, responde "sin cambios" y omite el catalogo;
+ *   si cambio, lo manda completo junto con la huella nueva.
+ *
+ * POR QUE UNA HUELLA Y NO UN NUMERO DE VERSION
+ *
+ *   Un contador habria que acordarlo entre las dos apps -el Portal tambien edita
+ *   Productos_Specs- y ademas no se enteraria si alguien corrige una celda a mano
+ *   en la planilla, que es algo que pasa. La huella se calcula sobre los datos
+ *   reales, asi que detecta cualquier cambio venga de donde venga.
+ *
+ * EL COSTO
+ *
+ *   Leer esas tres hojas sigue siendo necesario para calcular la huella, pero eso
+ *   es barato: son pocas filas y una sola llamada por hoja. Lo caro es armar los
+ *   objetos JSON y mandarlos por la red de planta, y eso es justo lo que se evita.
+ */
+function huellaCatalogo(maquinas, productos, operarios) {
+  // Se resumen solo los campos que la app usa para mostrar y validar: si cambia
+  // cualquiera de ellos, cambia la huella.
+  var partes = [];
+
+  partes.push("M" + maquinas.length);
+  for (var i = 0; i < maquinas.length; i++) partes.push(maquinas[i].id + "|" + maquinas[i].nombre);
+
+  partes.push("O" + operarios.length);
+  for (var o = 0; o < operarios.length; o++) partes.push(String(operarios[o].id || operarios[o]));
+
+  partes.push("P" + productos.length);
+  for (var p = 0; p < productos.length; p++) {
+    var pr = productos[p];
+    partes.push([pr.id, pr.nombre, pr.peso, pr.espesor, pr.diametroInterior, pr.hcuello,
+                 pr.color, pr.ciclo, pr.diametroHilo, pr.diametroTrinquete, pr.rebalse].join("~"));
+  }
+
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+                                      partes.join("\u0001"), Utilities.Charset.UTF_8);
+  var hex = "";
+  for (var b = 0; b < bytes.length; b++) {
+    var v = (bytes[b] & 0xFF).toString(16);
+    hex += v.length === 1 ? "0" + v : v;
+  }
+  return hex;
+}
+
 function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -1191,6 +1251,21 @@ function doGet(e) {
   var terrenoPorId = {};     // chequeo de terreno cavidad por cavidad
   var fallasPorId = {};      // C2: que cavidad fallo y en que variable
 
+  /*
+   * Que rondas de la ventana estan Pendientes.
+   *
+   * Se calcula ANTES de recorrer el detalle para poder saltear el trabajo que
+   * solo hace falta para ellas. Es una pasada mas por la cabecera, que ya esta
+   * en memoria, a cambio de miles de objetos que no se construyen.
+   */
+  var idsPendientes = {};
+  for (var p = 0; p < alcance.filas.length; p++) {
+    var filaP = alcance.valores[alcance.filas[p]];
+    if (!filaP || !filaP[0]) continue;
+    var estadoP = String(filaP[12] || "").trim() || "Cerrada";
+    if (estadoP === "Pendiente") idsPendientes[String(filaP[0])] = true;
+  }
+
   for (var d = 0; d < dataDet.length; d++) {
     if (!dataDet[d][1]) continue;
     var idDet = String(dataDet[d][1]);
@@ -1198,16 +1273,26 @@ function doGet(e) {
 
     cavidadesPorId[idDet] = (cavidadesPorId[idDet] || 0) + 1;
 
-    // El laboratorio necesita ver que midio terreno en ESA misma cavidad.
-    if (!terrenoPorId[idDet]) terrenoPorId[idDet] = [];
-    var regTerreno = { cavidad: nroCav };
-    for (var tt = 0; tt < MEDICIONES_ORDEN.length; tt++) {
-      var claveTT = MEDICIONES_ORDEN[tt];
-      if (MEDICIONES_TERRENO.indexOf(claveTT) === -1) continue;
-      regTerreno[claveTT + "_val"] = dataDet[d][3 + tt];
-      regTerreno[claveTT + "_med"] = dataDet[d][16 + tt];
+    /*
+     * El chequeo de terreno cavidad por cavidad SOLO lo consume el laboratorio
+     * cuando abre una ronda pendiente.
+     *
+     * Antes se armaba para las ~600 rondas de la ventana de siete dias, cuando
+     * las pendientes son dos o tres. Eran miles de objetos construidos en cada
+     * consulta para descartarlos al instante, y esta consulta corre despues de
+     * cada guardado.
+     */
+    if (idsPendientes[idDet]) {
+      if (!terrenoPorId[idDet]) terrenoPorId[idDet] = [];
+      var regTerreno = { cavidad: nroCav };
+      for (var tt = 0; tt < MEDICIONES_ORDEN.length; tt++) {
+        var claveTT = MEDICIONES_ORDEN[tt];
+        if (MEDICIONES_TERRENO.indexOf(claveTT) === -1) continue;
+        regTerreno[claveTT + "_val"] = dataDet[d][3 + tt];
+        regTerreno[claveTT + "_med"] = dataDet[d][16 + tt];
+      }
+      terrenoPorId[idDet].push(regTerreno);
     }
-    terrenoPorId[idDet].push(regTerreno);
 
     // C2: se anota la cavidad SOLO si algo salio "No Cumple". Guardar tambien
     // las conformes multiplicaria por 20 el tamaño de la respuesta sin aportar:
@@ -1362,9 +1447,6 @@ function doGet(e) {
   resumenTurnos = resumenTurnos.slice(0, 8);
 
   var response = {
-    maquinas: maquinas,
-    productos: productos,
-    operarios: operarios,
     historial: historial,
     pendientes: pendientes,
     desviaciones: desviaciones,
@@ -1381,6 +1463,28 @@ function doGet(e) {
     historialTruncado: alcance.truncado,
     filasLeidasDetalle: dataDet.length
   };
+
+  /*
+   * El catalogo viaja SOLO si cambio.
+   *
+   * La tablet manda en `cat` la huella de lo que ya tiene. Si coincide con la
+   * actual, se omiten maquinas, productos y operarios: la app conserva los que
+   * ya tenia en memoria y la respuesta baja de tamaño de forma notoria.
+   */
+  var huella = huellaCatalogo(maquinas, productos, operarios);
+  response.catalogoHuella = huella;
+
+  var huellaCliente = (e && e.parameter) ? String(e.parameter.cat || "") : "";
+
+  if (huellaCliente && huellaCliente === huella) {
+    response.catalogoSinCambios = true;
+  } else {
+    response.catalogoSinCambios = false;
+    response.maquinas = maquinas;
+    response.productos = productos;
+    response.operarios = operarios;
+  }
+
   return ContentService.createTextOutput(JSON.stringify(response))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -2646,9 +2750,16 @@ function crearPDFNativoInseccion(idInspeccion, fechaHora, data, turnoOficial, ca
 
     var folderName = "Inspecciones_PDF";
     var folders = DriveApp.getFoldersByName(folderName);
-    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+    var raizInsp = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
 
-    var file = folder.createFile(blob);
+    /*
+     * El id de la ronda no trae fecha, asi que el mes sale de fechaHora, que es
+     * cuando se registro en terreno. Se usa getInfoTurnoOperativo y no los
+     * primeros caracteres del texto porque una ronda de la madrugada pertenece
+     * al turno del dia anterior, y ahi es donde tiene que quedar archivada.
+     */
+    var infoArchivo = getInfoTurnoOperativo(fechaHora);
+    var file = guardarPDFEnMes(raizInsp, infoArchivo.fechaOperativa, blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return file.getUrl();
   } catch (err) {
@@ -2921,7 +3032,10 @@ function generarPDFsPorMaquinaTurno(turnoParam, fechaParam) {
 
     var blob = Utilities.newBlob(html, "text/html", "consolidado.html").getAs("application/pdf");
     blob.setName(nombre);
-    folder.createFile(blob);
+
+    // Va a Inspecciones_PDF/aaaa/mm y reemplaza la version anterior de esa maquina
+    // y ese turno: regenerar un turno ya no deja copias apiladas.
+    guardarPDFEnMes(folder, fechaObjetivo, blob);
     pdfsGenerados++;
   }
 
@@ -3679,4 +3793,130 @@ function regenerarActasExistentes() {
 function reiniciarRegistroRegeneradas() {
   PropertiesService.getScriptProperties().deleteProperty("actas_regeneradas");
   Logger.log("Registro borrado. La proxima ejecucion va a tomar todas las actas de nuevo.");
+}
+
+
+/* ============================================================
+ * ORGANIZACION DE LOS PDF EN DRIVE
+ * ============================================================
+ *
+ * Los PDF se guardan en subcarpetas por año y mes:
+ *
+ *     Inspecciones_PDF/2026/09/
+ *     Actas_Traspaso/2026/09/
+ *
+ * POR QUE
+ *
+ *   Se generan unos noventa archivos por dia. A los seis meses la carpeta plana
+ *   pasa los quince mil: Drive se vuelve lento de abrir, buscar algo a mano es
+ *   imposible, y el Portal tiene que recorrer todo el monton para cualquier
+ *   consulta. Con subcarpetas, buscar dentro de un mes toca solo ese mes.
+ *
+ *   Ademas permite archivar o respaldar un periodo completo moviendo una carpeta.
+ *
+ * ADEMAS: REEMPLAZAR EN VEZ DE DUPLICAR
+ *
+ *   createFile siempre crea un archivo nuevo, aunque ya exista uno con el mismo
+ *   nombre. Por eso un turno regenerado cinco veces dejaba cinco copias de cada
+ *   consolidado, y en el Portal aparecia la misma maquina repetida sin forma de
+ *   saber cual mirar. Ahora la version anterior va a la papelera, de donde se
+ *   puede recuperar si hiciera falta.
+ */
+
+/* Devuelve (creandola si no existe) la subcarpeta aaaa/mm de una carpeta raiz. */
+function subcarpetaDelMes(raiz, fechaOperativa) {
+  var iso = String(fechaOperativa || "");
+  if (iso.length < 7) {
+    // Sin fecha utilizable, mejor la raiz que inventar un mes equivocado.
+    return raiz;
+  }
+
+  var anio = iso.substr(0, 4);
+  var mes = iso.substr(5, 2);
+
+  var carpetaAnio = subcarpetaPorNombre(raiz, anio);
+  return subcarpetaPorNombre(carpetaAnio, mes);
+}
+
+function subcarpetaPorNombre(padre, nombre) {
+  var it = padre.getFoldersByName(nombre);
+  return it.hasNext() ? it.next() : padre.createFolder(nombre);
+}
+
+/*
+ * Guarda el PDF reemplazando cualquier version anterior del mismo nombre.
+ *
+ * La anterior va a la papelera en vez de borrarse: un consolidado mal regenerado
+ * se puede recuperar desde ahi durante treinta dias.
+ */
+function guardarPDFEnMes(raiz, fechaOperativa, blob) {
+  var carpeta = subcarpetaDelMes(raiz, fechaOperativa);
+
+  var previos = carpeta.getFilesByName(blob.getName());
+  while (previos.hasNext()) previos.next().setTrashed(true);
+
+  return carpeta.createFile(blob);
+}
+
+
+/*
+ * MIGRACION - ejecutar a mano, las veces que haga falta.
+ *
+ * Mueve a su subcarpeta de año y mes los PDF que hoy estan sueltos en la raiz.
+ * Trabaja de a tandas porque Apps Script corta a los seis minutos; al final dice
+ * cuantos quedan.
+ *
+ * El mes sale del NOMBRE del archivo cuando lo trae (los consolidados y las actas
+ * lo traen) y, si no, de la fecha de creacion del archivo.
+ */
+function organizarPDFsPorMes() {
+
+  var MAX_POR_TANDA = 250;
+
+  var raices = ["Inspecciones_PDF", ACTA_CARPETA];
+  var movidos = 0, restantes = 0;
+
+  for (var r = 0; r < raices.length; r++) {
+    var it = DriveApp.getFoldersByName(raices[r]);
+    if (!it.hasNext()) { Logger.log("No existe " + raices[r] + "."); continue; }
+
+    var raiz = it.next();
+    var archivos = raiz.getFilesByType(MimeType.PDF);
+    var enEstaRaiz = 0;
+
+    while (archivos.hasNext()) {
+      if (movidos >= MAX_POR_TANDA) { restantes++; continue; }
+
+      var archivo = archivos.next();
+      var nombre = archivo.getName();
+
+      // La fecha del nombre; si no la trae, la de creacion.
+      var m = nombre.match(/(\d{4}-\d{2}-\d{2})/);
+      var fecha = m ? m[1]
+        : Utilities.formatDate(archivo.getDateCreated(), "America/Santiago", "yyyy-MM-dd");
+
+      var destino = subcarpetaDelMes(raiz, fecha);
+
+      // Si ya hay uno igual en el destino, este es un duplicado: a la papelera.
+      var yaHay = destino.getFilesByName(nombre);
+      if (yaHay.hasNext()) {
+        archivo.setTrashed(true);
+      } else {
+        archivo.moveTo(destino);
+      }
+
+      movidos++;
+      enEstaRaiz++;
+    }
+
+    Logger.log(raices[r] + ": " + enEstaRaiz + " archivo(s) acomodado(s) en esta tanda.");
+  }
+
+  Logger.log("");
+  Logger.log("Total movido en esta tanda: " + movidos);
+  if (restantes > 0 || movidos >= MAX_POR_TANDA) {
+    Logger.log("Quedan archivos en la raiz. Volver a ejecutar hasta que diga 0.");
+  } else {
+    Logger.log("No queda nada suelto en la raiz. Listo.");
+  }
 }

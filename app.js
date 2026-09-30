@@ -19,6 +19,15 @@ let html5QrCode = null;
 let currentRondaId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  /*
+   * Lo primero: recuperar el catalogo guardado en la tablet.
+   *
+   * Va antes que cualquier otra cosa para que los selectores de maquina y
+   * producto tengan contenido desde el arranque, sin esperar al servidor. La
+   * consulta posterior solo confirma si cambio algo.
+   */
+  huellaCatalogoLocal = recuperarCatalogoLocal();
+
   setupNavigation();
   setupEventListeners();
   setupToggles();
@@ -1113,7 +1122,10 @@ function renderPendientes() {
   if (!tbody) return;
 
   if (pendientesCache.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No hay rondas pendientes de laboratorio.</td></tr>`;
+    tbody.innerHTML = datosCargadosAlgunaVez
+      ? `<tr><td colspan="7" style="text-align:center;">No hay rondas pendientes de laboratorio.</td></tr>`
+      : `<tr><td colspan="7" style="text-align:center; color:#fbbf24;">\u26a0\ufe0f No se pudieron cargar los datos.` +
+        `<br><small>Puede haber rondas esperando. Revisá la señal y tocá Actualizar.</small></td></tr>`;
     return;
   }
 
@@ -2578,15 +2590,139 @@ function setupEstadoConexion() {
   setupCola();
 }
 
-async function loadCatalogData() {
+/*
+ * Marca si los datos llegaron alguna vez.
+ *
+ * Sin esto, una consulta fallida deja las listas vacias y el inspector lee
+ * "no hay rondas pendientes" cuando en realidad la app no pudo consultar. Los
+ * dos casos se veian identicos, y ese es justo el momento en que hay que saber
+ * la diferencia: una lista vacia de verdad significa que no queda nada por
+ * ensayar; una que no cargo significa que puede haber trabajo esperando.
+ */
+let datosCargadosAlgunaVez = false;
+
+const HTTP_TRANSITORIOS_GET = [404, 408, 429, 500, 502, 503, 504];
+const REINTENTOS_CARGA = 3;
+const TIMEOUT_CARGA_MS = 30000;
+
+const pausa = (ms) => new Promise(r => setTimeout(r, ms));
+
+/*
+ * Una consulta con timeout.
+ *
+ * loadCatalogData no tenia ninguno: si el servidor no respondia, la app quedaba
+ * esperando para siempre con las listas en blanco y sin ningun aviso.
+ */
+/*
+ * El catalogo se guarda en la tablet junto con su huella.
+ *
+ * Asi sobrevive a cerrar y abrir la app: al arrancar ya hay maquinas, productos y
+ * operarios para trabajar, y la consulta al servidor solo confirma si cambiaron.
+ * Antes, cada refresco obligaba a bajar el catalogo completo antes de poder hacer
+ * nada.
+ *
+ * localStorage y no sessionStorage: la idea es justamente que persista entre
+ * sesiones. No hay nada sensible ahi, es el mismo catalogo que cualquiera ve al
+ * abrir el formulario.
+ */
+const CLAVE_CATALOGO = 'catalogo_cache_v1';
+
+function guardarCatalogoLocal(huella) {
   try {
-    const res = await fetch(GOOGLE_SCRIPT_URL, { redirect: 'follow' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    localStorage.setItem(CLAVE_CATALOGO, JSON.stringify({
+      huella: huella,
+      maquinas: maquinasCache,
+      productos: productosCache,
+      operarios: operariosCache
+    }));
+  } catch (e) {
+    // Sin espacio o en modo privado: se sigue sin cache, solo mas lento.
+    console.warn('No se pudo guardar el catálogo local:', e);
+  }
+}
+
+function recuperarCatalogoLocal() {
+  try {
+    const crudo = localStorage.getItem(CLAVE_CATALOGO);
+    if (!crudo) return '';
+
+    const guardado = JSON.parse(crudo);
+    if (!guardado || !guardado.huella) return '';
+
+    maquinasCache = guardado.maquinas || [];
+    productosCache = guardado.productos || [];
+    operariosCache = guardado.operarios || [];
+    return guardado.huella;
+  } catch (e) {
+    return '';
+  }
+}
+
+let huellaCatalogoLocal = '';
+
+async function fetchConTimeout(url, ms) {
+  const control = new AbortController();
+  const alarma = setTimeout(() => control.abort(), ms);
+  try {
+    return await fetch(url, { redirect: 'follow', signal: control.signal });
+  } finally {
+    clearTimeout(alarma);
+  }
+}
+
+async function loadCatalogData() {
+  for (let intento = 1; intento <= REINTENTOS_CARGA; intento++) {
+    const ultimo = (intento === REINTENTOS_CARGA);
+    try {
+      // La huella le dice al servidor que catalogo tiene ya la tablet: si no
+      // cambio, no lo reenvia.
+      const url = GOOGLE_SCRIPT_URL +
+        (huellaCatalogoLocal ? '?cat=' + encodeURIComponent(huellaCatalogoLocal) : '');
+      const res = await fetchConTimeout(url, TIMEOUT_CARGA_MS);
+
+      if (!res.ok) {
+        // 404 tipico de un redespliegue, 5xx de una falla momentanea de Google:
+        // en los dos casos vale la pena esperar y volver a pedir.
+        if (HTTP_TRANSITORIOS_GET.indexOf(res.status) !== -1 && !ultimo) {
+          await pausa(1500 * intento);
+          continue;
+        }
+        throw new Error('HTTP ' + res.status);
+      }
+
+      return await procesarCatalogo(res);
+    } catch (err) {
+      if (!ultimo) { await pausa(1500 * intento); continue; }
+
+      console.error("Error API:", err);
+      marcarConexion(false);
+      // Se repintan las listas para que muestren el aviso de que no se pudo
+      // consultar, en vez de quedarse con el texto de "no hay registros".
+      renderHistorialInspector();
+      renderPendientes();
+      return false;
+    }
+  }
+  return false;
+}
+
+async function procesarCatalogo(res) {
+  try {
     const data = await res.json();
 
-    maquinasCache = data.maquinas || [];
-    productosCache = data.productos || [];
-    operariosCache = data.operarios || [];
+    /*
+     * Si el servidor dice que el catalogo no cambio, no viene en la respuesta y
+     * se conservan los que ya estaban. Pisarlos con [] dejaria los selectores de
+     * maquina y producto vacios, que es justo lo que se quiere evitar.
+     */
+    if (!data.catalogoSinCambios) {
+      maquinasCache = data.maquinas || [];
+      productosCache = data.productos || [];
+      operariosCache = data.operarios || [];
+      huellaCatalogoLocal = data.catalogoHuella || '';
+      guardarCatalogoLocal(huellaCatalogoLocal);
+    }
+
     historialCache = data.historial || [];
     pendientesCache = data.pendientes || [];
     resumenTurnosCache = data.resumenTurnos || [];
@@ -2600,6 +2736,7 @@ async function loadCatalogData() {
     };
     filasHistorialVisibles = 0;   // cada recarga vuelve a empezar el paginado
 
+    datosCargadosAlgunaVez = true;
     marcarConexion(true);
     // C2: llegaron rondas nuevas, las rachas pueden haber cambiado.
     refrescarAlertasCavidad();
@@ -2608,10 +2745,10 @@ async function loadCatalogData() {
     actualizarContadorBorradores();
     return true;
   } catch (err) {
-    // Antes esto quedaba solo en la consola y el inspector veia listas vacias sin
-    // saber que eran datos viejos y no "no hay rondas".
-    console.error("Error API:", err);
+    console.error("Error al leer la respuesta:", err);
     marcarConexion(false);
+    renderHistorialInspector();
+    renderPendientes();
     return false;
   }
 }
@@ -2668,7 +2805,10 @@ function renderHistorialInspector(agregarTanda) {
     .sort((a, b) => String(b.fechaHora).localeCompare(String(a.fechaHora)));   // más reciente primero
 
   if (mis.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">No tienes registros en los últimos ${escapeHTML(metaHistorial.dias)} días.</td></tr>`;
+    tbody.innerHTML = datosCargadosAlgunaVez
+      ? `<tr><td colspan="10" style="text-align:center;">No tienes registros en los últimos ${escapeHTML(metaHistorial.dias)} días.</td></tr>`
+      : `<tr><td colspan="10" style="text-align:center; color:#fbbf24;">\u26a0\ufe0f No se pudieron cargar los datos.` +
+        `<br><small>Revisá la señal y tocá Actualizar.</small></td></tr>`;
     actualizarNotaHistorial(0, 0);
     return;
   }
