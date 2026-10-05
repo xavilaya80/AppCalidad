@@ -33,7 +33,7 @@
   
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <!-- Chart.js se retiro junto con la pestaña de Analisis, que paso al Portal Calidad. -->
-  <link rel="stylesheet" href="styles.css?v=42">
+  <link rel="stylesheet" href="styles.css?v=43">
 </head>
 <body>
 
@@ -71,7 +71,7 @@
       <!-- Sirve para saber, desde el propio telefono, si la app cargo la version
            nueva o sigue sirviendo una copia vieja desde cache. Sin esto, "no se
            actualizo" y "no funciona el cambio" se ven exactamente igual. -->
-      <p id="app-version" style="color:#64748b; font-size:0.72rem; margin-top:6px;">v42</p>
+      <p id="app-version" style="color:#64748b; font-size:0.72rem; margin-top:6px;">v43</p>
       <div class="login-acciones">
         <button id="btn-login" class="btn btn-primary">Entrar</button>
         <button id="btn-login-cancelar" class="btn btn-secondary" style="display:none;">Cancelar</button>
@@ -210,6 +210,16 @@
             <input type="text" id="input-search-operario" placeholder="Buscar o escribir operario..." autocomplete="off">
             <input type="hidden" id="select-operario">
             <div id="dropdown-operario" class="combobox-dropdown"></div>
+          </div>
+
+          <!-- Reemplazo por colacion. Casi siempre va vacio, por eso dice
+               claramente que es opcional: un campo obligatorio mas en cada ronda
+               seria una molestia diaria por un dato que se usa de vez en cuando. -->
+          <div class="form-group">
+            <label>Operario de reemplazo <small>(opcional, solo si cubre colación)</small>:</label>
+            <input type="text" id="input-search-reemplazo" placeholder="Dejar vacío si no hubo reemplazo" autocomplete="off">
+            <input type="hidden" id="select-reemplazo">
+            <div id="dropdown-reemplazo" class="combobox-dropdown"></div>
           </div>
 
           <div class="form-group">
@@ -505,6 +515,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=43"></script>
 </body>
 </html>

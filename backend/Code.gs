@@ -1370,6 +1370,7 @@ function doGet(e) {
       accionCorrectiva: String(fila[25] || ""),
       responsable: String(fila[26] || ""),
       observacionesTerreno: String(fila[27] || ""),
+      operarioReemplazo: String(fila[28] || ""),
       color_med: fila[17], color_val: fila[18] || "Cumple",
       ciclo_med: fila[19], ciclo_val: fila[20] || "Cumple",
       peso_med: fila[21], peso_val: fila[22] || "Cumple",
@@ -1920,7 +1921,17 @@ function crearRonda(data) {
     // Columna propia y no la K: la K la escribe cerrarRonda con lo que anota el
     // laboratorio, asi que compartirla haria que el cierre borrara el comentario
     // que dejo el inspector en maquina.
-    data.observaciones_terreno || ""
+    data.observaciones_terreno || "",
+    /*
+     * AC - Operario de reemplazo.
+     *
+     * Casi siempre vacio: solo se completa cuando alguien cubre la colacion del
+     * operario titular. Va en columna propia y no mezclado en el campo operario
+     * porque la pregunta que se contesta con este dato es "quien estaba en la
+     * maquina cuando se tomo esta medicion", y eso se pierde si los dos nombres
+     * comparten celda.
+     */
+    data.operario_reemplazo || ""
   ]);
 
   // --- Siembra del detalle: una fila por cavidad ---
@@ -2487,7 +2498,9 @@ function registrarDetencion(data) {
     // causa del paro, asi que esto queda para cualquier nota adicional de quien
     // estaba en maquina. Se escribe igual para que todas las filas de la hoja
     // tengan el mismo ancho.
-    data.observaciones_terreno || ""
+    data.observaciones_terreno || "",
+    // AC - Se escribe vacio para que todas las filas tengan el mismo ancho.
+    ""
   ]);
 
   /*
@@ -2977,6 +2990,7 @@ function generarPDFsPorMaquinaTurno(turnoParam, fechaParam) {
       loteBxa: dataCab[i][9],
       observaciones: dataCab[i][10],
       observacionesTerreno: dataCab[i][27] || "",
+      operarioReemplazo: dataCab[i][28] || "",
       cavidadMolde: dataCab[i][16] || "",
       noCumple: noCumplePorId[idInspeccion] || [],
       cavidades: cavidadesPorId[idInspeccion] || [],
@@ -3199,7 +3213,15 @@ function consolidadoMaquinaHTML(maquina, lista, turno, fecha, specsPorProducto) 
         '<table class="info">' +
           '<tr><td class="lbl">Inspector Terreno</td><td class="val">' + escaparHTML(ro.inspector || "-") + '</td>' +
               '<td class="lbl">Inspector Laboratorio</td><td class="val">' + escaparHTML(ro.inspectorLab || "-") + '</td></tr>' +
-          '<tr><td class="lbl">Operario</td><td class="val">' + escaparHTML(ro.operario || "-") + '</td>' +
+          '<tr><td class="lbl">Operario</td><td class="val">' +
+              escaparHTML(ro.operario || "-") +
+              // El reemplazo se muestra junto al titular y solo si existe: es la
+              // respuesta a "quien estaba en la maquina en esta ronda".
+              (String(ro.operarioReemplazo || "").trim()
+                ? '<br><span style="color:#b45309;">Reemplazo: ' +
+                  escaparHTML(ro.operarioReemplazo) + '</span>'
+                : '') +
+            '</td>' +
               '<td class="lbl">Cavidades ensayadas</td><td class="val">' + (ro.cavidades ? ro.cavidades.length : 0) + '</td></tr>' +
           '<tr><td class="lbl">Lote MP</td><td class="val">' + escaparHTML(ro.loteMp || "-") + '</td>' +
               '<td class="lbl">Lote BXA</td><td class="val">' + escaparHTML(ro.loteBxa || "-") + '</td></tr>' +

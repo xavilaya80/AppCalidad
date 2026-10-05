@@ -985,7 +985,10 @@ function recopilarDatosIdentificacionMultiCavidad() {
     accion_correctiva: (document.getElementById('input-accion-correctiva') || {}).value || '',
     responsable: (document.getElementById('input-responsable') || {}).value || '',
     // Observaciones de quien esta en maquina, separadas de las de laboratorio.
-    observaciones_terreno: (document.getElementById('input-observaciones-terreno') || {}).value || ''
+    observaciones_terreno: (document.getElementById('input-observaciones-terreno') || {}).value || '',
+    // Casi siempre vacio: solo se completa cuando alguien cubre la colacion.
+    operario_reemplazo: (document.getElementById('select-reemplazo') || {}).value ||
+                        (document.getElementById('input-search-reemplazo') || {}).value || ''
   };
 }
 
@@ -1004,6 +1007,12 @@ function resetFormularioIdentificacion() {
   document.getElementById('select-producto').value = '';
   document.getElementById('input-search-producto').value = '';
   document.getElementById('input-search-operario').value = '';
+  // El reemplazo es de esa ronda puntual: si no se limpia, la siguiente queda
+  // registrada con un operario de reemplazo que ya no esta en la maquina.
+  const buscaReem = document.getElementById('input-search-reemplazo');
+  if (buscaReem) buscaReem.value = '';
+  const selReem = document.getElementById('select-reemplazo');
+  if (selReem) selReem.value = '';
   document.getElementById('input-lote-mp').value = '';
   document.getElementById('input-lote-bxa').value = '';
   document.getElementById('input-cavidad').value = 1;
@@ -1231,7 +1240,9 @@ function setupCustomComboboxes() {
   const configs = [
     { inputId: 'input-search-maquina', dropId: 'dropdown-maquina', getData: () => maquinasCache, type: 'maquina' },
     { inputId: 'input-search-producto', dropId: 'dropdown-producto', getData: () => productosCache, type: 'producto' },
-    { inputId: 'input-search-operario', dropId: 'dropdown-operario', getData: () => operariosCache, type: 'operario' }
+    { inputId: 'input-search-operario', dropId: 'dropdown-operario', getData: () => operariosCache, type: 'operario' },
+    // Misma lista de operarios: quien reemplaza tambien es operario de planta.
+    { inputId: 'input-search-reemplazo', dropId: 'dropdown-reemplazo', getData: () => operariosCache, type: 'operario' }
   ];
 
   configs.forEach(cfg => {
@@ -1488,6 +1499,7 @@ function setupEventListeners() {
         cavidad_molde: numCav,
         cavidadesTerreno: dataIdent.cavidadesTerreno,
         observaciones_terreno: dataIdent.observaciones_terreno,
+        operario_reemplazo: dataIdent.operario_reemplazo,
         // Solo tienen contenido cuando esta ronda reactiva una maquina detenida.
         // El acta las lee de aqui para completar la linea "Reactivada: <que se hizo>".
         accion_correctiva: dataIdent.accion_correctiva,
