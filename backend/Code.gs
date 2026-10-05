@@ -1165,11 +1165,18 @@ function huellaCatalogo(maquinas, productos, operarios) {
   partes.push("O" + operarios.length);
   for (var o = 0; o < operarios.length; o++) partes.push(String(operarios[o].id || operarios[o]));
 
+  /*
+   * Del producto se resume TODO el objeto, no una lista de campos elegidos.
+   *
+   * La primera version nombraba los campos uno por uno, y eso dejaba un hueco:
+   * una especificacion editada desde el Portal en una columna no listada no
+   * cambiaba la huella, asi que la tablet seguia mostrando la ficha vieja sin
+   * que nadie se enterara. Resumiendo el objeto completo, cualquier cambio en
+   * cualquier campo se detecta.
+   */
   partes.push("P" + productos.length);
   for (var p = 0; p < productos.length; p++) {
-    var pr = productos[p];
-    partes.push([pr.id, pr.nombre, pr.peso, pr.espesor, pr.diametroInterior, pr.hcuello,
-                 pr.color, pr.ciclo, pr.diametroHilo, pr.diametroTrinquete, pr.rebalse].join("~"));
+    partes.push(JSON.stringify(productos[p]));
   }
 
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
