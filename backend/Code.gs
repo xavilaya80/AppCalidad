@@ -1891,6 +1891,16 @@ function crearRonda(data) {
   var totalCavidades = Number(data.cavidad_molde) || cavidadesTerreno.length;
   var base = cavidadesTerreno[0];   // cavidad 1: se replica en la cabecera
 
+  /*
+   * Los operarios que no esten en la hoja se agregan solos.
+   *
+   * Se hace ANTES de escribir la fila para poder guardar el nombre tal como
+   * queda en el catalogo: si el operario ya existia con otra grafia, se usa la de
+   * la hoja y no la tecleada, para no terminar con el mismo nombre escrito de
+   * tres maneras distintas en el historial.
+   */
+  var nombresOperario = asegurarOperarios([data.operario, data.operario_reemplazo]);
+
   sheetCab.appendRow([
     data.idRonda,
     correlativo,
@@ -1899,7 +1909,7 @@ function crearRonda(data) {
     data.inspector_calidad || "",
     data.id_maquina || "",
     data.id_producto || "",
-    data.operario || "",
+    nombresOperario[data.operario] || data.operario || "",
     data.lote_mp || "",
     data.lote_bxa || "",
     "",                 // Observaciones (Col K)
@@ -1931,7 +1941,7 @@ function crearRonda(data) {
      * maquina cuando se tomo esta medicion", y eso se pierde si los dos nombres
      * comparten celda.
      */
-    data.operario_reemplazo || ""
+    nombresOperario[data.operario_reemplazo] || data.operario_reemplazo || ""
   ]);
 
   // --- Siembra del detalle: una fila por cavidad ---
@@ -3948,4 +3958,181 @@ function organizarPDFsPorMes() {
   } else {
     Logger.log("No queda nada suelto en la raiz. Listo.");
   }
+}
+
+
+/*
+ * ============================================================
+ * ALTA AUTOMATICA DE OPERARIOS
+ * ============================================================
+ *
+ * Si el inspector escribe un operario que no esta en la hoja, se agrega solo.
+ * Evita tener que pedirle a alguien que lo cargue a mano antes de poder
+ * registrar una ronda, que en medio de un turno no es viable.
+ *
+ * EL RIESGO, Y COMO SE ACOTA
+ *
+ *   Agregar sin control convierte cada error de tipeo en un operario nuevo y
+ *   permanente: "Jose Duran", "José Durán" y "jose duran" serian tres personas
+ *   distintas, y a los meses la lista no sirve.
+ *
+ *   Por eso la comparacion ignora mayusculas, tildes y espacios de mas. Si el
+ *   nombre ya existe en cualquiera de esas formas, NO se agrega: se reutiliza el
+ *   que ya estaba. Solo entra lo que de verdad es nuevo.
+ *
+ *   Lo que esto no puede evitar es un nombre mal escrito de otra forma
+ *   ("Durna" por "Durán"). Conviene que la jefatura revise la hoja Operarios de
+ *   vez en cuando y limpie lo que sobre.
+ */
+
+/* Deja el nombre comparable: sin tildes, sin dobles espacios, en minuscula. */
+function claveOperario(nombre) {
+  var s = String(nombre || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  var conTilde = "áàäâãéèëêíìïîóòöôõúùüûñç";
+  var sinTilde = "aaaaaeeeeiiiiooooouuuunc";
+  var salida = "";
+  for (var i = 0; i < s.length; i++) {
+    var pos = conTilde.indexOf(s.charAt(i));
+    salida += (pos === -1) ? s.charAt(i) : sinTilde.charAt(pos);
+  }
+  return salida;
+}
+
+/*
+ * Agrega a la hoja Operarios los nombres que no existan todavia.
+ *
+ * Devuelve los nombres tal como deben guardarse: si el operario ya existia con
+ * otra grafia, se devuelve la que esta en la hoja, para no crear variantes del
+ * mismo nombre en Inspecciones_Cabecera.
+ */
+function asegurarOperarios(nombres) {
+  var resultado = {};
+  var pendientes = [];
+
+  for (var n = 0; n < nombres.length; n++) {
+    var crudo = String(nombres[n] || "").trim().replace(/\s+/g, " ");
+    // Dos caracteres no es un nombre: suele ser un toque accidental.
+    if (crudo.length < 3) continue;
+    resultado[nombres[n]] = crudo;
+    pendientes.push(crudo);
+  }
+  if (!pendientes.length) return resultado;
+
+  try {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Operarios");
+    if (!hoja) return resultado;
+
+    var ultima = hoja.getLastRow();
+    var existentes = {};
+    if (ultima >= 2) {
+      var filas = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+      for (var f = 0; f < filas.length; f++) {
+        var nom = String(filas[f][0] || "").trim();
+        if (nom) existentes[claveOperario(nom)] = nom;
+      }
+    }
+
+    var nuevos = [];
+    var yaEnEstaTanda = {};
+
+    for (var p = 0; p < pendientes.length; p++) {
+      var clave = claveOperario(pendientes[p]);
+      if (!clave) continue;
+
+      if (existentes[clave]) {
+        // Ya existe: se usa la grafia de la hoja, no la que se tecleo.
+        for (var k in resultado) if (claveOperario(resultado[k]) === clave) resultado[k] = existentes[clave];
+        continue;
+      }
+      if (yaEnEstaTanda[clave]) continue;
+
+      yaEnEstaTanda[clave] = true;
+      nuevos.push([pendientes[p]]);
+    }
+
+    if (nuevos.length) {
+      hoja.getRange(hoja.getLastRow() + 1, 1, nuevos.length, 1).setValues(nuevos);
+      for (var x = 0; x < nuevos.length; x++) Logger.log("Operario agregado: " + nuevos[x][0]);
+    }
+  } catch (err) {
+    // Nunca hacer fallar el guardado de una ronda por no poder tocar el catalogo.
+    Logger.log("No se pudo actualizar Operarios: " + err);
+  }
+
+  return resultado;
+}
+
+
+/*
+ * REVISION DE OPERARIOS PARECIDOS - ejecutar cada tanto desde el editor.
+ *
+ * La confirmacion en la app atrapa los errores de tipeo al momento, pero no es
+ * infalible: si alguien acepta sin leer, o el nombre mal escrito no se parece
+ * lo suficiente a ninguno existente, entra igual.
+ *
+ * Esto lista los pares de nombres que se diferencian en pocas letras, para poder
+ * revisarlos sin leer la hoja entera. No borra nada: solo informa.
+ *
+ * Al corregir un duplicado, acordarse de que el historial de inspecciones ya
+ * guardo el nombre mal escrito: conviene corregirlo tambien ahi, o al menos
+ * saber que existe.
+ */
+function revisarOperariosParecidos() {
+  var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Operarios");
+  if (!hoja) { Logger.log("No existe la hoja Operarios."); return; }
+
+  var ultima = hoja.getLastRow();
+  if (ultima < 3) { Logger.log("Hay menos de dos operarios: nada que comparar."); return; }
+
+  var filas = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+  var nombres = [];
+  for (var i = 0; i < filas.length; i++) {
+    var n = String(filas[i][0] || "").trim();
+    if (n) nombres.push({ texto: n, clave: claveOperario(n), fila: i + 2 });
+  }
+
+  Logger.log("Operarios cargados: " + nombres.length);
+  Logger.log("");
+
+  var sospechosos = 0;
+  for (var a = 0; a < nombres.length; a++) {
+    for (var b = a + 1; b < nombres.length; b++) {
+      var d = distanciaEdicion(nombres[a].clave, nombres[b].clave);
+      var largo = Math.max(nombres[a].clave.length, nombres[b].clave.length);
+
+      // Mismo criterio que usa la app al avisar.
+      var margen = largo <= 6 ? 1 : (largo <= 12 ? 2 : 3);
+      if (d === 0 || d > margen) continue;
+
+      Logger.log("Parecidos (" + d + " letra" + (d === 1 ? "" : "s") + " de diferencia):");
+      Logger.log("   fila " + nombres[a].fila + ": " + nombres[a].texto);
+      Logger.log("   fila " + nombres[b].fila + ": " + nombres[b].texto);
+      Logger.log("");
+      sospechosos++;
+    }
+  }
+
+  if (sospechosos === 0) Logger.log("No se encontraron nombres parecidos entre si.");
+  else Logger.log("Pares a revisar: " + sospechosos);
+}
+
+/* Cuantas letras hay que cambiar para pasar de un texto al otro. */
+function distanciaEdicion(a, b) {
+  var m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+
+  var previa = [];
+  for (var j = 0; j <= n; j++) previa.push(j);
+
+  for (var i = 1; i <= m; i++) {
+    var actual = [i];
+    for (var k = 1; k <= n; k++) {
+      var costo = (a.charAt(i - 1) === b.charAt(k - 1)) ? 0 : 1;
+      actual[k] = Math.min(previa[k] + 1, actual[k - 1] + 1, previa[k - 1] + costo);
+    }
+    previa = actual;
+  }
+  return previa[n];
 }

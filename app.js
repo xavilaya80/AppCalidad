@@ -1054,6 +1054,110 @@ function resetFormularioCompleto() {
   resetFormularioIdentificacion();
 }
 
+// ============ CONFIRMACION DE OPERARIO NUEVO ============
+/*
+ * Antes de registrar un operario que no esta en la lista, se pregunta.
+ *
+ * Sin esto, cualquier error de tipeo se convertia en un operario nuevo y
+ * permanente: "Durna" por "Duran" quedaba como otra persona, y a los meses la
+ * lista tenia variantes del mismo nombre sin forma de distinguirlas.
+ *
+ * El aviso aparece SOLO cuando el nombre no esta en la lista, asi que en el uso
+ * normal -elegir de la lista- no molesta nunca.
+ */
+
+/* Deja el nombre comparable: sin tildes, sin dobles espacios, en minuscula. */
+function claveNombre(nombre) {
+  const s = String(nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const conTilde = 'áàäâãéèëêíìïîóòöôõúùüûñç';
+  const sinTilde = 'aaaaaeeeeiiiiooooouuuunc';
+  let out = '';
+  for (const ch of s) {
+    const i = conTilde.indexOf(ch);
+    out += (i === -1) ? ch : sinTilde[i];
+  }
+  return out;
+}
+
+/*
+ * Distancia de edicion: cuantas letras hay que cambiar para pasar de un nombre
+ * al otro. Un error de tipeo real suele estar a una o dos letras del original.
+ */
+function distanciaTexto(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+
+  let previa = Array.from({ length: n + 1 }, (_, j) => j);
+
+  for (let i = 1; i <= m; i++) {
+    const actual = [i];
+    for (let j = 1; j <= n; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      actual[j] = Math.min(previa[j] + 1, actual[j - 1] + 1, previa[j - 1] + costo);
+    }
+    previa = actual;
+  }
+  return previa[n];
+}
+
+/* El operario mas parecido de la lista, o null si ninguno se acerca lo suficiente. */
+function operarioParecido(nombre) {
+  const clave = claveNombre(nombre);
+  if (clave.length < 3) return null;
+
+  // El margen crece con el largo: en un nombre corto, dos letras de diferencia
+  // ya son otro nombre; en uno largo, pueden ser un dedazo.
+  const margen = clave.length <= 6 ? 1 : (clave.length <= 12 ? 2 : 3);
+
+  let mejor = null, mejorDist = Infinity;
+
+  (operariosCache || []).forEach(op => {
+    const nom = String(op.nombre || op.id || op);
+    const d = distanciaTexto(clave, claveNombre(nom));
+    if (d < mejorDist) { mejorDist = d; mejor = nom; }
+  });
+
+  return (mejor && mejorDist > 0 && mejorDist <= margen) ? mejor : null;
+}
+
+function existeOperario(nombre) {
+  const clave = claveNombre(nombre);
+  return (operariosCache || []).some(op => claveNombre(op.nombre || op.id || op) === clave);
+}
+
+/*
+ * Devuelve el nombre a usar, o null si el inspector cancelo el envio.
+ *
+ * Tres caminos: ya existe y se usa tal cual; se parece a uno de la lista y se
+ * ofrece ese; es realmente nuevo y se pide confirmacion explicita.
+ */
+function confirmarOperario(nombre, etiqueta) {
+  const limpio = String(nombre || '').trim();
+  if (!limpio) return '';
+  if (existeOperario(limpio)) return limpio;
+
+  const parecido = operarioParecido(limpio);
+
+  if (parecido) {
+    if (confirm(
+      `${etiqueta}: "${limpio}" no está en la lista.\n\n` +
+      `¿Quisiste decir "${parecido}"?\n\n` +
+      `Aceptar = usar "${parecido}"\n` +
+      `Cancelar = seguir con "${limpio}"`
+    )) return parecido;
+  }
+
+  if (confirm(
+    `${etiqueta}: "${limpio}" no está en la lista de operarios.\n\n` +
+    `¿Agregarlo como operario nuevo?\n\n` +
+    `Si fue un error de tipeo, cancelá y corregilo: una vez agregado queda ` +
+    `en la lista para siempre.`
+  )) return limpio;
+
+  return null;
+}
+
 /* ===================================================================
  * ID DE ENVIO ESTABLE (anti-duplicados)
  *
@@ -1479,6 +1583,18 @@ function setupEventListeners() {
     const btn = document.getElementById('btn-iniciar-ronda');
     // Estable: si este envio ya salio una vez y no se confirmo, se reusa el mismo
     // id para que el backend lo reconozca en vez de escribir una fila nueva.
+    /*
+     * Se confirman los operarios ANTES de reservar el id de envio: si el
+     * inspector cancela, no queda un id a medio usar dando vueltas.
+     */
+    const operarioOk = confirmarOperario(dataIdent.operario, 'Operario');
+    if (operarioOk === null) return;
+    dataIdent.operario = operarioOk;
+
+    const reemplazoOk = confirmarOperario(dataIdent.operario_reemplazo, 'Operario de reemplazo');
+    if (reemplazoOk === null) return;
+    dataIdent.operario_reemplazo = reemplazoOk;
+
     const idRonda = idEnvioEstable('INSP-');
     btn.disabled = true; btn.innerText = "Enviando a Laboratorio...";
 
